@@ -4,7 +4,7 @@ import { useAuth } from '../auth'
 import { Aviso, Carregando, Cartao, Pagina, Selo, useDados, Vazio } from '../components/ui'
 import { ok } from '../lib/erros'
 import { carregarBase, buscarTudo } from '../lib/base'
-import { dataBR, hojeISO, moeda, numero } from '../lib/formato'
+import { dataBR, hojeISO, moeda, numero, pct } from '../lib/formato'
 import { analisar, parametros, tarifaVigente } from '../lib/precificacao'
 
 export default function Painel() {
@@ -23,13 +23,13 @@ export default function Painel() {
       ehDono ? supabase.from('contas_pagar').select('*').is('pago_em', null)
         .lte('vencimento', new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)).order('vencimento').then(ok) : [],
     ])
-    return { ...base, vendasMes, compras, prejuizo, pagar, inicioDia: new Date(`${hoje}T00:00:00-03:00`) }
+    return { tarifas: [], produtoConta: [], ...base, vendasMes, compras, prejuizo, pagar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
   }, [ehDono])
 
   if (carregando) return <Pagina titulo="Painel"><Carregando /></Pagina>
   if (erro) return <Pagina titulo="Painel"><Aviso tipo="erro">{erro}</Aviso></Pagina>
 
-  const { contas, produtos, vendasMes, compras, prejuizo, pagar, inicioDia, tarifas, config, produtoConta } = dados
+  const { contas, produtos, vendasMes, compras, prejuizo, pagar, inicioDia, tarifas, config, produtoConta, carregadoComoDono } = dados
   const porConta = contas.map((c) => {
     const mes = vendasMes.filter((v) => v.conta_id === c.id)
     const dia = mes.filter((v) => new Date(v.data) >= inicioDia)
@@ -43,7 +43,7 @@ export default function Painel() {
 
   // anúncios abaixo do preço mínimo (lucro zero)
   const alertasPreco = []
-  if (ehDono) {
+  if (ehDono && carregadoComoDono) {
     for (const pc of produtoConta) {
       const prod = produtos.find((p) => p.id === pc.produto_id)
       const conta = contas.find((c) => c.id === pc.conta_id)
@@ -59,7 +59,7 @@ export default function Painel() {
       <div className="numeros">
         <div className="numero"><span>Vendas hoje</span><b>{tot.qDia}</b><small>{moeda(tot.fDia)}</small></div>
         <div className="numero"><span>Vendas no mês</span><b>{tot.qMes}</b><small>{moeda(tot.fMes)}</small></div>
-        {ehDono && <div className="numero"><span>Lucro no mês</span><b className={tot.lMes < 0 ? 'neg' : ''}>{moeda(tot.lMes)}</b><small>{tot.fMes ? numero((tot.lMes / tot.fMes) * 100, 1) + '% de margem' : '—'}</small></div>}
+        {ehDono && <div className="numero"><span>Lucro no mês</span><b className={tot.lMes < 0 ? 'neg' : ''}>{moeda(tot.lMes)}</b><small>{tot.fMes ? pct((tot.lMes / tot.fMes) * 100) + ' de margem' : '—'}</small></div>}
         <div className="numero"><span>Abaixo do mínimo</span><b className={abaixoMinimo.length ? 'neg' : ''}>{abaixoMinimo.length}</b><small>peças</small></div>
       </div>
 
@@ -70,7 +70,7 @@ export default function Painel() {
             <tbody>
               {porConta.map((r) => (
                 <tr key={r.conta.id}>
-                  <td><span className="bolinha" style={{ background: r.conta.cor }} />{r.conta.nome}</td>
+                  <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} />{r.conta.nome}</td>
                   <td className="num">{r.qDia}</td><td className="num">{moeda(r.fDia)}</td>
                   <td className="num">{r.qMes}</td><td className="num">{moeda(r.fMes)}</td>
                   {ehDono && <td className={`num ${r.lMes < 0 ? 'neg' : ''}`}>{moeda(r.lMes)}</td>}
