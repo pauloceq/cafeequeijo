@@ -36,7 +36,7 @@ jobs:
             echo "VITE_SUPABASE_URL=$URL_VAR" >> "$GITHUB_ENV"
             echo "VITE_SUPABASE_ANON_KEY=$KEY_VAR" >> "$GITHUB_ENV"
           elif [ -n "$TOKEN" ] && [ -n "$REF" ]; then
-            REF=$(echo "$REF" | sed -E 's#https?://##; s#\.supabase\.co.*##; s#/.*##')
+            REF=$(echo "$REF" | tr -d '[:space:]' | sed -E 's#^https?://##; s#^.*/project/##; s#\.supabase\.co.*##; s#/.*##')
             CHAVE=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys" -H "Authorization: Bearer $TOKEN" \
               | jq -r '([.[] | select(.type == "publishable")][0].api_key) // ([.[] | select(.name == "anon")][0].api_key) // empty')
             if [ -z "$CHAVE" ]; then echo "::warning::Não consegui ler a chave pública do Supabase; o app vai pedir na primeira tela."; exit 0; fi

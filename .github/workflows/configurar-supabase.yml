@@ -22,7 +22,7 @@ jobs:
             echo "::error::Cadastre os segredos SUPABASE_ACCESS_TOKEN e SUPABASE_PROJECT_REF em Settings > Secrets and variables > Actions."
             exit 1
           fi
-          REF=$(echo "$REF" | sed -E 's#https?://##; s#\.supabase\.co.*##; s#/.*##')
+          REF=$(echo "$REF" | tr -d '[:space:]' | sed -E 's#^https?://##; s#^.*/project/##; s#\.supabase\.co.*##; s#/.*##')
           echo "REF=$REF" >> "$GITHUB_ENV"
           echo "Projeto: $REF"
       - name: Criar/atualizar tabelas
