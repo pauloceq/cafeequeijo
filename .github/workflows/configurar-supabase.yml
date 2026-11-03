@@ -1,0 +1,52 @@
+name: Configurar Supabase
+
+# Cria/atualiza as tabelas (supabase/schema.sql) e desliga o cadastro público.
+# Precisa dos segredos SUPABASE_ACCESS_TOKEN e SUPABASE_PROJECT_REF (veja o README).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, 'claude/**']
+    paths: ['supabase/schema.sql']
+
+jobs:
+  configurar:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir segredos
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$REF" ]; then
+            echo "::error::Cadastre os segredos SUPABASE_ACCESS_TOKEN e SUPABASE_PROJECT_REF em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          REF=$(echo "$REF" | sed -E 's#https?://##; s#\.supabase\.co.*##; s#/.*##')
+          echo "REF=$REF" >> "$GITHUB_ENV"
+          echo "Projeto: $REF"
+      - name: Criar/atualizar tabelas
+        run: |
+          jq -Rs '{query: .}' supabase/schema.sql > corpo.json
+          status=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
+            "https://api.supabase.com/v1/projects/$REF/database/query" \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @corpo.json)
+          echo "HTTP $status"
+          if [ "$status" -ge 300 ]; then
+            echo "::error::Falha ao rodar o schema.sql: $(cat resposta.json)"
+            exit 1
+          fi
+          echo "Tabelas prontas."
+      - name: Desligar cadastro público (só o dono cria usuários)
+        run: |
+          status=$(curl -sS -o resposta.json -w '%{http_code}' -X PATCH \
+            "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            --data '{"disable_signup": true, "site_url": "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"}')
+          echo "HTTP $status"
+          if [ "$status" -ge 300 ]; then echo "::warning::Não consegui alterar o login: $(cat resposta.json). Desligue em Authentication > Sign In / Providers > Email."; fi
+      - name: Conferir
+        run: |
+          jq -n '{query: "select count(*) as contas from public.contas"}' > q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @q.json
