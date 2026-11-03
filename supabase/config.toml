@@ -1,0 +1,18 @@
+# Configuração usada pelo "supabase functions deploy" (GitHub Actions ou CLI).
+# Funções chamadas por sistemas externos não exigem o JWT do Supabase:
+#  - oauth-callback: o marketplace redireciona o navegador para cá
+#  - ml-webhook:     o Mercado Livre envia notificações para cá
+#  - sync-agendado:  o pg_cron chama a cada 15 min (protegido pelo CRON_SECRET)
+project_id = "cafeequeijo"
+
+[functions.conexoes]
+verify_jwt = true
+
+[functions.oauth-callback]
+verify_jwt = false
+
+[functions.ml-webhook]
+verify_jwt = false
+
+[functions.sync-agendado]
+verify_jwt = false
