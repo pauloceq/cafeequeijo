@@ -60,10 +60,14 @@ create table if not exists public.contas (
   criado_em timestamptz not null default now()
 );
 
+update public.contas set nome = 'Shopee 1' where nome = 'Shopee'
+  and not exists (select 1 from public.contas where nome = 'Shopee 1');
+
 insert into public.contas (nome, marketplace, cor, dias_liberacao) values
   ('Mercado Livre 1', 'mercadolivre', '#e0b100', 15),
   ('Mercado Livre 2', 'mercadolivre', '#9c7c00', 15),
-  ('Shopee',          'shopee',       '#ee4d2d', 15),
+  ('Shopee 1',        'shopee',       '#ee4d2d', 15),
+  ('Shopee 2',        'shopee',       '#f57224', 15),
   ('Amazon 1',        'amazon',       '#232f3e', 14),
   ('Amazon 2',        'amazon',       '#ff9900', 14)
 on conflict (nome) do nothing;

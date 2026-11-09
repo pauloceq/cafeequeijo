@@ -1,7 +1,7 @@
 # ☕ Café & Queijo — Gestão de estoque, vendas e compras
 
 App web (React + Vite + Supabase) para gerenciar uma loja que vende os mesmos produtos em
-**Mercado Livre 1, Mercado Livre 2, Shopee, Amazon 1 e Amazon 2**.
+**Mercado Livre 1, Mercado Livre 2, Shopee 1, Shopee 2, Amazon 1 e Amazon 2**.
 
 - **Estoque real** só em **peças**, por **local** (Principal, Estoque Escola…), com localização física e valor por local.
 - **Kits/pacotes** com lista de peças: custo e disponibilidade calculados; vender um kit baixa as peças.

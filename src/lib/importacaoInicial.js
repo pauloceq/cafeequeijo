@@ -317,7 +317,7 @@ export function analisarPlanilha(abas, opcoes = {}) {
   const contaDe = (mk) => {
     const n = normalizar(mk)
     if (/^(ml|mercado)/.test(n)) return opcoes.contaML || 'Mercado Livre 1'
-    if (/^(shp|shopee)/.test(n)) return 'Shopee'
+    if (/^(shp|shopee)/.test(n)) return 'Shopee 1'
     if (/^amazon|^amz/.test(n)) return 'Amazon 1'
     return null
   }
