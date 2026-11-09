@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { supabase } from '../supabase'
 import { Abas, Aviso, Barra, Carregando, Cartao, Pagina, useDados, Vazio } from '../components/ui'
 import { buscarTudo } from '../lib/base'
-import { hojeISO, moeda, numero } from '../lib/formato'
+import { hojeISO, moeda, numero, pct } from '../lib/formato'
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const rotuloMes = (ym) => `${MESES[Number(ym.slice(5, 7)) - 1]}/${ym.slice(2, 4)}`
@@ -102,7 +102,7 @@ export default function AnaliseCompras() {
                       <td>{p.nome}<div className="dica">{p.sku}</div></td>
                       <td className="num">{numero(p.qtd)}</td><td className="num">{p.pedidos}</td><td className="num">{moeda(p.valor)}</td>
                       <td className="num">{moeda(p.medio)}</td><td className="num">{moeda(p.ultimo)}</td>
-                      <td className={`num ${p.variacao > 5 ? 'neg' : p.variacao < -5 ? 'pos' : ''}`}>{p.variacao > 0 ? '+' : ''}{numero(p.variacao, 1)}%</td>
+                      <td className={`num ${p.variacao > 5 ? 'neg' : p.variacao < -5 ? 'pos' : ''}`}>{p.variacao > 0 ? '+' : ''}{pct(p.variacao)}</td>
                       <td>{p.ultimaData?.split('-').reverse().join('/')}</td>
                     </tr>
                   ))}
@@ -116,7 +116,7 @@ export default function AnaliseCompras() {
               <thead><tr><th>Loja</th><th className="num">Pedidos</th><th className="num">Valor</th><th className="num">% do total</th><th style={{ width: '30%' }} /></tr></thead>
               <tbody>
                 {r.lojas.map((l) => (
-                  <tr key={l.loja}><td>{l.loja}</td><td className="num">{l.pedidos}</td><td className="num">{moeda(l.valor)}</td><td className="num">{numero(l.valor / r.total * 100, 1)}%</td>
+                  <tr key={l.loja}><td>{l.loja}</td><td className="num">{l.pedidos}</td><td className="num">{moeda(l.valor)}</td><td className="num">{pct(l.valor / r.total * 100)}</td>
                     <td><Barra valor={l.valor} max={r.lojas[0].valor} /></td></tr>
                 ))}
               </tbody>
