@@ -204,3 +204,7 @@ details summary { cursor: pointer; padding: 6px 0; }
 .tarifa { border-left: 3px solid var(--borda); padding: 4px 10px; margin-bottom: 8px; }
 .tarifa.atual { border-left-color: var(--ok); }
 .nowrap { white-space: nowrap; }
+
+/* fluxo de caixa: semana atual e semanas passadas */
+.tabela tr.destaque td { background: color-mix(in srgb, var(--acento) 10%, transparent); }
+.tabela tr.passado td { color: var(--texto-2); }

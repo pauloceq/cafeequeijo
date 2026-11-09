@@ -24,39 +24,62 @@ export default function Financeiro() {
 
 function useFinanceiro() {
   return useDados(async () => {
-    const [receber, pagar, config] = await Promise.all([
+    const [receber, pagar, config, recebidas, pagas] = await Promise.all([
       buscarTudo(() => supabase.from('vw_vendas').select('id,data,conta_id,conta_nome,codigo_externo,liquido_previsto,previsao_recebimento,itens_resumo')
         // vendas importadas como histórico também entram, se a liberação for recente (as antigas já foram recebidas)
         .eq('status', 'concluida').is('valor_recebido', null).or(`origem.neq.historico,previsao_recebimento.gte.${diasAtras(90)}`)),
       supabase.from('contas_pagar').select('*').is('pago_em', null).order('vencimento').then(ok),
       supabase.from('config_geral').select('*').eq('id', 1).single().then(ok),
+      // o que já foi liberado nas últimas semanas (para mostrar o histórico de liberações)
+      buscarTudo(() => supabase.from('vendas').select('conta_id,valor_recebido,data_recebimento,contas(nome)')
+        .eq('status', 'concluida').not('valor_recebido', 'is', null).gte('data_recebimento', diasAtras(13 * 7))),
+      supabase.from('contas_pagar').select('valor,pago_em').not('pago_em', 'is', null).gte('pago_em', diasAtras(13 * 7)).then(ok),
     ])
-    return { receber, pagar, config }
+    return { receber, pagar, config, recebidas, pagas }
   })
 }
 
 function Fluxo() {
   const { dados, erro, carregando, recarregar } = useFinanceiro()
   const [semanas, setSemanas] = useState(8)
+  const [passadas, setPassadas] = useState(4)
   const acao = useAcao()
   const linhas = useMemo(() => {
     if (!dados) return []
+    // semanas de segunda a domingo, como os saques costumam ser planejados
     const hoje = new Date(hojeISO() + 'T12:00')
+    const seg = new Date(hoje.getTime() - ((hoje.getDay() + 6) % 7) * 864e5)
+    const iso = (x) => x.toISOString().slice(0, 10)
     const out = []
     let saldo = Number(dados.config.saldo_caixa) || 0
-    for (let i = 0; i < semanas; i++) {
-      const ini = new Date(hoje.getTime() + i * 7 * 864e5), fim = new Date(ini.getTime() + 6 * 864e5)
-      const naSemana = (iso) => { const x = new Date(iso + 'T12:00'); return i === 0 ? x <= fim : x >= ini && x <= fim }
-      const ent = dados.receber.filter((v) => v.previsao_recebimento && naSemana(v.previsao_recebimento)).reduce((s, v) => s + Number(v.liquido_previsto), 0)
+    for (let i = -passadas; i < semanas; i++) {
+      const ini = new Date(seg.getTime() + i * 7 * 864e5), fim = new Date(ini.getTime() + 6 * 864e5)
+      const a = iso(ini), b = iso(fim)
+      const dentro = (d) => d && d >= a && d <= b
+      if (i < 0) {
+        const lib = dados.recebidas.filter((v) => dentro(v.data_recebimento))
+        const porConta = {}
+        for (const v of lib) porConta[v.contas?.nome || '?'] = (porConta[v.contas?.nome || '?'] || 0) + Number(v.valor_recebido)
+        out.push({ ini, fim, passado: true, ent: lib.reduce((s, v) => s + Number(v.valor_recebido), 0), qtd: lib.length, porConta,
+          sai: dados.pagas.filter((c) => dentro(c.pago_em)).reduce((s, c) => s + Number(c.valor), 0) })
+        continue
+      }
+      // atrasados (liberação prevista antes de hoje e ainda não marcada) entram na semana atual
+      const naSemana = (d) => d && (i === 0 ? d <= b : dentro(d))
+      const lib = dados.receber.filter((v) => naSemana(v.previsao_recebimento))
+      const porConta = {}
+      for (const v of lib) porConta[v.conta_nome] = (porConta[v.conta_nome] || 0) + Number(v.liquido_previsto)
+      const ent = lib.reduce((s, v) => s + Number(v.liquido_previsto), 0)
       const sai = dados.pagar.filter((c) => naSemana(c.vencimento)).reduce((s, c) => s + Number(c.valor), 0)
       saldo += ent - sai
-      out.push({ ini, fim, ent, sai, saldo })
+      out.push({ ini, fim, ent, sai, saldo, qtd: lib.length, porConta, atual: i === 0 })
     }
     return out
-  }, [dados, semanas])
+  }, [dados, semanas, passadas])
   if (carregando) return <Carregando />
   if (erro) return <Aviso tipo="erro">{erro}</Aviso>
   const max = Math.max(1, ...linhas.map((l) => Math.max(l.ent, l.sai)))
+  const fmt = (x) => x.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
   return (
     <>
       <Cartao>
@@ -65,25 +88,30 @@ function Fluxo() {
             <input defaultValue={String(dados.config.saldo_caixa).replace('.', ',')} inputMode="decimal"
               onBlur={(e) => acao.executar(async () => { ok(await supabase.from('config_geral').update({ saldo_caixa: lerNumero(e.target.value) }).eq('id', 1)); recarregar() })} />
           </Campo>
-          <Campo rotulo="Semanas"><select value={semanas} onChange={(e) => setSemanas(Number(e.target.value))}><option>4</option><option>8</option><option>12</option></select></Campo>
+          <Campo rotulo="Semanas passadas"><select value={passadas} onChange={(e) => setPassadas(Number(e.target.value))}><option>0</option><option>4</option><option>8</option><option>12</option></select></Campo>
+          <Campo rotulo="Semanas à frente"><select value={semanas} onChange={(e) => setSemanas(Number(e.target.value))}><option>4</option><option>8</option><option>12</option></select></Campo>
         </div>
         <Mensagens acao={acao} />
-        <p className="dica">Entradas = vendas ainda não recebidas, pela data prevista de liberação (data da venda + dias de liberação da conta). Saídas = contas a pagar. Atrasados entram na 1ª semana.</p>
+        <p className="dica">Liberações = dinheiro das vendas que fica disponível para saque em cada marketplace. Semanas passadas mostram o que já foi liberado; as próximas mostram a previsão (data da venda + dias de liberação da conta, em Configurações). Liberações atrasadas entram na semana atual.</p>
       </Cartao>
-      <table className="tabela">
-        <thead><tr><th>Semana</th><th className="num">Entradas</th><th className="num">Saídas</th><th className="num">Saldo previsto</th><th style={{ width: '30%' }} /></tr></thead>
-        <tbody>
-          {linhas.map((l, i) => (
-            <tr key={i}>
-              <td>{l.ini.toLocaleDateString('pt-BR')} a {l.fim.toLocaleDateString('pt-BR')}</td>
-              <td className="num">{moeda(l.ent)}</td><td className="num neg">{moeda(l.sai)}</td>
-              <td className={`num ${l.saldo < 0 ? 'neg' : ''}`}><b>{moeda(l.saldo)}</b></td>
-              <td><Barra valor={l.ent} max={max} cor="var(--ok)" /><Barra valor={l.sai} max={max} cor="var(--neg)" /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {linhas.some((l) => l.saldo < 0) && <Aviso tipo="aviso">O saldo previsto fica negativo em alguma semana. Considere adiar compras ou antecipar recebíveis.</Aviso>}
+      <div className="tabela-rolagem">
+        <table className="tabela">
+          <thead><tr><th>Semana</th><th className="num">Liberações</th><th>Por conta</th><th className="num">Saídas</th><th className="num">Saldo previsto</th><th style={{ width: '22%' }} /></tr></thead>
+          <tbody>
+            {linhas.map((l, i) => (
+              <tr key={i} className={l.atual ? 'destaque' : l.passado ? 'passado' : ''}>
+                <td>{fmt(l.ini)} a {fmt(l.fim)}<div className="dica">{l.passado ? 'liberado' : l.atual ? 'esta semana' : 'previsto'}{l.qtd ? ` · ${l.qtd} venda(s)` : ''}</div></td>
+                <td className="num"><b>{moeda(l.ent)}</b></td>
+                <td className="dica">{Object.entries(l.porConta).sort((a, b) => b[1] - a[1]).map(([c, v]) => `${c}: ${moeda(v)}`).join(' · ')}</td>
+                <td className="num neg">{moeda(l.sai)}</td>
+                <td className={`num ${l.saldo < 0 ? 'neg' : ''}`}>{l.passado ? '—' : <b>{moeda(l.saldo)}</b>}</td>
+                <td><Barra valor={l.ent} max={max} cor="var(--ok)" /><Barra valor={l.sai} max={max} cor="var(--neg)" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {linhas.some((l) => !l.passado && l.saldo < 0) && <Aviso tipo="aviso">O saldo previsto fica negativo em alguma semana. Considere adiar compras ou antecipar recebíveis.</Aviso>}
     </>
   )
 }

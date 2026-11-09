@@ -19,6 +19,7 @@ import Conexoes from './pages/Conexoes'
 import Compras from './pages/Compras'
 import ImportarAliExpress from './pages/ImportarAliExpress'
 import Fornecedores from './pages/Fornecedores'
+import AnaliseCompras from './pages/AnaliseCompras'
 import Financeiro from './pages/Financeiro'
 import Relatorios from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
@@ -36,7 +37,7 @@ const MENU = [
     ['/anuncios', 'Anúncios', '🔗'], ['/exportar', 'Exportar planilhas', '📤'], ['/conexoes', 'Conexão Mercado Livre', '🔌', true],
   ]],
   ['Compras', [
-    ['/compras', 'Pedidos de compra', '🛒', true], ['/aliexpress', 'Importar AliExpress', '🌏', true],
+    ['/compras', 'Pedidos de compra', '🛒', true], ['/analise-compras', 'Análise de compras', '📊', true], ['/aliexpress', 'Importar AliExpress', '🌏', true],
     ['/fornecedores', 'Fornecedores', '🏭', true],
   ]],
   ['Gestão', [
@@ -96,6 +97,7 @@ function Layout() {
               <Route path="/reposicao" element={<Reposicao />} />
               <Route path="/conexoes" element={<Conexoes />} />
               <Route path="/compras" element={<Compras />} />
+              <Route path="/analise-compras" element={<AnaliseCompras />} />
               <Route path="/aliexpress" element={<ImportarAliExpress />} />
               <Route path="/fornecedores" element={<Fornecedores />} />
               <Route path="/financeiro" element={<Financeiro />} />
