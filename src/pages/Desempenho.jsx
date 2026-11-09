@@ -45,9 +45,9 @@ export default function Desempenho() {
       lucroUn: x.qtd ? x.lucro / x.qtd : 0, ticket: x.qtd ? x.receita / x.qtd : 0, porMes: x.qtd / dias * 30,
       semCusto: x.custo <= 0,
     }))
-    const relevantes = lista.filter((x) => x.qtd >= f.minimo)
+    const relevantes = lista.filter((x) => x.qtd >= f.minimo && !x.semCusto)
     const mQtd = mediana(relevantes.map((x) => x.qtd)), mMargem = mediana(relevantes.map((x) => x.margem))
-    lista = lista.map((x) => ({ ...x, classe: x.qtd < f.minimo ? null : x.qtd >= mQtd ? (x.margem >= mMargem ? 'estrela' : 'volume') : (x.margem >= mMargem ? 'joia' : 'rever') }))
+    lista = lista.map((x) => ({ ...x, classe: x.qtd < f.minimo || x.semCusto ? null : x.qtd >= mQtd ? (x.margem >= mMargem ? 'estrela' : 'volume') : (x.margem >= mMargem ? 'joia' : 'rever') }))
     const tot = lista.reduce((s, x) => ({ qtd: s.qtd + x.qtd, receita: s.receita + x.receita, lucro: s.lucro + x.lucro, custo: s.custo + x.custo }), { qtd: 0, receita: 0, lucro: 0, custo: 0 })
     return { lista, tot, mQtd, mMargem, dias }
   }, [dados, base.dados, f.por, f.minimo, f.de, f.ate])
@@ -120,7 +120,7 @@ function Conteudo({ r, minimo }) {
             {tabela.map((x) => (
               <tr key={x.id}>
                 <td>{x.nome}<div className="dica">{x.sku}</div></td>
-                <td>{x.classe ? <span title={CLASSES[x.classe][1]}>{CLASSES[x.classe][0]}</span> : <span className="dica">poucas vendas</span>}</td>
+                <td>{x.classe ? <span title={CLASSES[x.classe][1]}>{CLASSES[x.classe][0]}</span> : <span className="dica">{x.semCusto ? 'sem custo' : 'poucas vendas'}</span>}</td>
                 <td className="num">{int(x.qtd)}</td><td className="num">{(Math.round(x.porMes * 10) / 10).toLocaleString('pt-BR')}</td>
                 <td className="num">{moeda(x.ticket)}</td><td className="num">{moeda(x.receita)}</td><td className="num">{x.semCusto ? '—' : moeda(x.custo)}</td>
                 <td className={`num ${x.lucro < 0 ? 'neg' : ''}`}><b>{moeda(x.lucro)}</b></td><td className="num">{moeda(x.lucroUn)}</td>
