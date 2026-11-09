@@ -181,8 +181,8 @@ function Giro({ r }) {
                 <td className="num"><b>{numero(g.vendidas)}</b></td><td><Barra valor={g.vendidas} max={max} /></td>
                 <td className="num">{moeda(g.receita)}</td><td className={`num ${g.lucro < 0 ? 'neg' : ''}`}>{moeda(g.lucro)}</td><td className="num">{pct(g.margem)}</td>
                 <td className="num">{numero(g.compradas)}</td><td className="num">{moeda(g.custoMedio)}</td>
-                <td className="num">{numero(g.estoque)}</td><td className="num">{numero(g.porMes, 1)}</td>
-                <td className={`num ${g.cobertura !== null && g.cobertura < 30 ? 'neg' : ''}`}>{g.cobertura === null ? '—' : `${Math.round(g.cobertura)} d`}</td>
+                <td className="num">{numero(g.estoque)}</td><td className="num">{(Math.round(g.porMes * 10) / 10).toLocaleString('pt-BR')}</td>
+                <td className={`num ${g.cobertura !== null && g.cobertura < 30 ? 'neg' : ''}`}>{g.cobertura === null ? '—' : g.estoque <= 0 ? 'sem estoque' : `${Math.round(g.cobertura)} d`}</td>
               </tr>
             ))}
           </tbody>
