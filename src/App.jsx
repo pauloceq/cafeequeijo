@@ -20,6 +20,7 @@ import Compras from './pages/Compras'
 import ImportarAliExpress from './pages/ImportarAliExpress'
 import Fornecedores from './pages/Fornecedores'
 import AnaliseCompras from './pages/AnaliseCompras'
+import Desempenho from './pages/Desempenho'
 import Financeiro from './pages/Financeiro'
 import Relatorios from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
@@ -41,7 +42,7 @@ const MENU = [
     ['/fornecedores', 'Fornecedores', '🏭', true],
   ]],
   ['Gestão', [
-    ['/financeiro', 'Financeiro', '💰', true], ['/relatorios', 'Relatórios', '📈', true],
+    ['/desempenho', 'Desempenho dos produtos', '🏆', true], ['/financeiro', 'Financeiro', '💰', true], ['/relatorios', 'Relatórios', '📈', true],
     ['/configuracoes', 'Configurações', '⚙️', true], ['/importacao-inicial', 'Importação inicial', '🗂️', true],
   ]],
   ['', [['/ajuda', 'Ajuda e passo a passo', '❓']]],
@@ -98,6 +99,7 @@ function Layout() {
               <Route path="/conexoes" element={<Conexoes />} />
               <Route path="/compras" element={<Compras />} />
               <Route path="/analise-compras" element={<AnaliseCompras />} />
+              <Route path="/desempenho" element={<Desempenho />} />
               <Route path="/aliexpress" element={<ImportarAliExpress />} />
               <Route path="/fornecedores" element={<Fornecedores />} />
               <Route path="/financeiro" element={<Financeiro />} />

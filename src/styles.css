@@ -208,3 +208,12 @@ details summary { cursor: pointer; padding: 6px 0; }
 /* fluxo de caixa: semana atual e semanas passadas */
 .tabela tr.destaque td { background: color-mix(in srgb, var(--acento) 10%, transparent); }
 .tabela tr.passado td { color: var(--texto-2); }
+
+/* desempenho dos produtos */
+.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.grade-cartoes .cartao { margin: 0; }
+.ranking { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.ranking-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .9rem; }
+.ranking-linha span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legenda-classes { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.mapa-produtos svg { width: 100%; height: auto; max-height: 420px; }
