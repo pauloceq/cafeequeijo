@@ -37,7 +37,7 @@ const MENU = [
     ['/anuncios', 'Anúncios', '🔗'], ['/exportar', 'Exportar planilhas', '📤'], ['/conexoes', 'Conexão Mercado Livre', '🔌', true],
   ]],
   ['Compras', [
-    ['/compras', 'Pedidos de compra', '🛒', true], ['/analise-compras', 'Análise de compras', '📊', true], ['/aliexpress', 'Importar AliExpress', '🌏', true],
+    ['/compras', 'Pedidos de compra', '🛒', true], ['/analise-compras', 'Análise de compras e giro', '📊', true], ['/aliexpress', 'Importar AliExpress', '🌏', true],
     ['/fornecedores', 'Fornecedores', '🏭', true],
   ]],
   ['Gestão', [

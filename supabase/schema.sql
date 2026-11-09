@@ -769,10 +769,11 @@ end $$;
 -- =====================================================================
 -- 9. VISÕES (relatórios, painel, reposição)
 -- =====================================================================
+drop view if exists public.vw_consumo_pecas;
+drop view if exists public.vw_vendas_pecas;
 drop view if exists public.vw_vendas;
 drop view if exists public.vw_vendas_itens;
 drop view if exists public.vw_produtos;
-drop view if exists public.vw_consumo_pecas;
 drop view if exists public.vw_a_caminho;
 
 create view public.vw_produtos with (security_invoker = true) as
@@ -831,14 +832,36 @@ left join lateral (
 ) s on true;
 
 -- Saída de cada peça por vendas (líquida de cancelamentos) — kits já explodidos nas peças
+-- Cada item vendido "explodido" no produto comprado (peça): kits viram as peças que levam.
+-- Receita/custo/lucro do kit são divididos entre as peças pelo custo de cada uma.
+-- Base da Análise de produtos e do consumo (reposição), inclusive para vendas importadas como histórico.
+create view public.vw_vendas_pecas with (security_invoker = true) as
+select i.venda_id, i.data, i.conta_id, i.conta_nome, i.status,
+  i.produto_id as vendido_id, i.sku as sku_vendido,
+  coalesce(k.peca_id, i.produto_id) as peca_id,
+  i.quantidade * coalesce(k.quantidade, 1) as quantidade,
+  i.receita * w.peso as receita, i.custo * w.peso as custo, i.lucro * w.peso as lucro,
+  (i.taxa + i.frete) * w.peso as tarifas
+from vw_vendas_itens i
+left join kit_componentes k on k.kit_id = i.produto_id
+left join produtos pk on pk.id = k.peca_id
+left join lateral (
+  select case when k.kit_id is null then 1.0
+              when sum(k2.quantidade * greatest(p2.custo_medio, 0.01)) > 0
+                then (k.quantidade * greatest(pk.custo_medio, 0.01)) / sum(k2.quantidade * greatest(p2.custo_medio, 0.01))
+              else 1.0 / count(*) end as peso
+  from kit_componentes k2 join produtos p2 on p2.id = k2.peca_id where k2.kit_id = i.produto_id
+) w on true;
+
+-- Saída de cada peça por vendas concluídas (kits já explodidos), pela data da venda
 create view public.vw_consumo_pecas with (security_invoker = true) as
 select p.id as produto_id,
-  coalesce(-sum(m.quantidade) filter (where m.criado_em >= now() - interval '30 days'), 0) as saida_30,
-  coalesce(-sum(m.quantidade) filter (where m.criado_em >= now() - interval '60 days'), 0) as saida_60,
-  coalesce(-sum(m.quantidade) filter (where m.criado_em >= now() - interval '90 days'), 0) as saida_90,
-  max(m.criado_em) filter (where m.tipo = 'venda') as ultima_venda
+  coalesce(sum(v.quantidade) filter (where v.data >= now() - interval '30 days'), 0) as saida_30,
+  coalesce(sum(v.quantidade) filter (where v.data >= now() - interval '60 days'), 0) as saida_60,
+  coalesce(sum(v.quantidade) filter (where v.data >= now() - interval '90 days'), 0) as saida_90,
+  max(v.data) as ultima_venda
 from produtos p
-left join movimentos_estoque m on m.produto_id = p.id and m.tipo in ('venda', 'cancelamento_venda', 'devolucao')
+left join vw_vendas_pecas v on v.peca_id = p.id and v.status = 'concluida'
 where p.tipo = 'peca'
 group by p.id;
 
@@ -911,7 +934,7 @@ grant execute on function public.criar_pedido_compra(jsonb) to authenticated;
 grant execute on function public.receber_pedido_compra(bigint, date, int) to authenticated;
 grant execute on function public.gerar_contas_pagar(bigint) to authenticated;
 grant execute on function public.eh_dono() to authenticated;
-grant select on public.vw_produtos, public.vw_vendas_itens, public.vw_vendas, public.vw_consumo_pecas, public.vw_a_caminho to authenticated;
+grant select on public.vw_produtos, public.vw_vendas_itens, public.vw_vendas, public.vw_vendas_pecas, public.vw_consumo_pecas, public.vw_a_caminho to authenticated;
 
 -- avisa a API do Supabase para recarregar o esquema
 notify pgrst, 'reload schema';
