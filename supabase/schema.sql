@@ -877,6 +877,46 @@ select produto_id, sum(qtd) as quantidade, min(previsao) as proxima_chegada from
   where pc.status = 'enviado'
 ) x group by produto_id;
 
+
+-- Mesclar produtos: o SKU "de" é o mesmo produto que "para" (outro anúncio/loja).
+-- Move vendas, compras, anúncios, estoque e histórico para "para", guarda o SKU antigo como
+-- apelido em todas as contas (as importações continuam reconhecendo) e apaga o duplicado.
+create or replace function public.mesclar_produtos(p_de int, p_para int)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_de produtos%rowtype; v_para produtos%rowtype; r record;
+begin
+  if not eh_dono() then raise exception 'Apenas o dono pode mesclar produtos.'; end if;
+  if p_de = p_para then raise exception 'Escolha dois produtos diferentes.'; end if;
+  select * into v_de from produtos where id = p_de;
+  select * into v_para from produtos where id = p_para;
+  if v_de.id is null or v_para.id is null then raise exception 'Produto não encontrado.'; end if;
+  perform set_config('app.rpc', 'on', true);
+  update venda_itens set produto_id = p_para where produto_id = p_de;
+  update pedido_compra_itens set produto_id = p_para where produto_id = p_de;
+  update movimentos_estoque set produto_id = p_para where produto_id = p_de;
+  -- estoque: soma no destino (só peças têm estoque)
+  if v_para.tipo = 'peca' then
+    for r in select local_id, quantidade from estoque_locais where produto_id = p_de loop
+      insert into estoque_locais (produto_id, local_id, quantidade) values (p_para, r.local_id, 0) on conflict do nothing;
+      update estoque_locais set quantidade = quantidade + r.quantidade where produto_id = p_para and local_id = r.local_id;
+    end loop;
+    update produtos set estoque_real = estoque_real + v_de.estoque_real where id = p_para;
+  end if;
+  delete from estoque_locais where produto_id = p_de;
+  -- kits que usavam a peça antiga passam a usar a nova
+  update kit_componentes k set peca_id = p_para where peca_id = p_de
+    and not exists (select 1 from kit_componentes x where x.kit_id = k.kit_id and x.peca_id = p_para);
+  delete from kit_componentes where peca_id = p_de or kit_id = p_de;
+  update anuncios set produto_id = p_para where produto_id = p_de;
+  update mapeamento_itens_fornecedor set produto_id = p_para where produto_id = p_de;
+  delete from produto_conta where produto_id = p_de;
+  -- apelido: o SKU antigo continua sendo reconhecido em todas as contas
+  insert into anuncios (conta_id, codigo, sku_marketplace, titulo, produto_id, unidades_por_venda)
+  select c.id, v_de.sku, v_de.sku, 'Apelido de ' || v_para.sku || ' (SKU antigo)', p_para, 1 from contas c
+  on conflict (conta_id, codigo) do update set produto_id = excluded.produto_id;
+  delete from produtos where id = p_de;
+end $$;
+
 -- =====================================================================
 -- 10. SEGURANÇA (Row Level Security)
 -- =====================================================================
@@ -931,6 +971,7 @@ grant execute on function public.ajustar_estoque(int, int, text, numeric, text, 
 grant execute on function public.transferir_estoque(int, int, int, numeric, text) to authenticated;
 grant execute on function public.definir_custo(int, numeric, text) to authenticated;
 grant execute on function public.criar_pedido_compra(jsonb) to authenticated;
+grant execute on function public.mesclar_produtos(int, int) to authenticated;
 grant execute on function public.receber_pedido_compra(bigint, date, int) to authenticated;
 grant execute on function public.gerar_contas_pagar(bigint) to authenticated;
 grant execute on function public.eh_dono() to authenticated;

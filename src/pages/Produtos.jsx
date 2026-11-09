@@ -101,6 +101,7 @@ function FormProduto({ produto, dados, ehDono, onFechar, onSalvo }) {
     return [c.id, { quantidade_anuncio: pc?.quantidade_anuncio ?? 0, preco: pc?.preco ?? null, comissao_pct: pc?.comissao_pct ?? null, ads_pct: pc?.ads_pct ?? null, ativo: pc?.ativo ?? true }]
   })))
   const [novoCusto, setNovoCusto] = useState(null)
+  const [mesclarCom, setMesclarCom] = useState('')
   const acao = useAcao()
   const set = (k) => (v) => setP((x) => ({ ...x, [k]: v?.target ? (v.target.type === 'checkbox' ? v.target.checked : v.target.value) : v }))
   const pecasDisponiveis = dados.produtos.filter((x) => x.tipo === 'peca' && x.id !== p.id)
@@ -235,6 +236,23 @@ function FormProduto({ produto, dados, ehDono, onFechar, onSalvo }) {
         </fieldset>
 
         {ehDono && <Campo rotulo="Observação"><textarea rows={2} value={p.observacao || ''} onChange={set('observacao')} /></Campo>}
+        {ehDono && p.id && (
+          <fieldset>
+            <legend>É o mesmo produto que outro SKU?</legend>
+            <p className="dica">Use quando este SKU existe só por causa de outra loja ou outro anúncio. Vendas, compras, anúncios e estoque passam para o produto escolhido; este SKU vira um apelido (continua reconhecido nas importações) e o cadastro duplicado é apagado.</p>
+            <div className="linha">
+              <select value={mesclarCom} onChange={(e) => setMesclarCom(e.target.value)}>
+                <option value="">Escolha o produto principal…</option>
+                {dados.produtos.filter((x) => x.id !== p.id).map((x) => <option key={x.id} value={x.id}>{x.sku} — {x.nome}</option>)}
+              </select>
+              <button className="botao" disabled={!mesclarCom || acao.ocupado} onClick={() => {
+                const alvo = dados.produtos.find((x) => x.id === Number(mesclarCom))
+                if (!confirm(`Juntar ${p.sku} em ${alvo.sku}? ${p.sku} será apagado e passará a ser apenas um apelido de ${alvo.sku}.`)) return
+                acao.executar(async () => { ok(await supabase.rpc('mesclar_produtos', { p_de: p.id, p_para: alvo.id })); onSalvo() })
+              }}>Juntar neste produto</button>
+            </div>
+          </fieldset>
+        )}
         <Mensagens acao={acao} />
         <div className="acoes-form">
           {ehDono && p.id && <button className="botao perigo" onClick={excluir} disabled={acao.ocupado}>Excluir</button>}
