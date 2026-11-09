@@ -210,10 +210,22 @@ details summary { cursor: pointer; padding: 6px 0; }
 .tabela tr.passado td { color: var(--texto-2); }
 
 /* desempenho dos produtos */
-.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.grade-cartoes .cartao { margin: 0; }
-.ranking { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
-.ranking-linha { display: flex; justify-content: space-between; gap: 8px; font-size: .9rem; }
-.ranking-linha span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.legenda-classes { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.mapa-produtos svg { width: 100%; height: auto; max-height: 420px; }
+.grade-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.grade-cartoes > * { min-width: 0; margin: 0; }
+.ranking { margin: 0; padding-left: 1.4em; display: grid; gap: 10px; }
+.ranking li { min-width: 0; }
+.ranking-linha { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; font-size: .88rem; line-height: 1.25; margin-bottom: 3px; }
+.ranking-linha b { flex: 0 0 auto; white-space: nowrap; }
+.nome-produto { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.quadrantes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 10px 0 4px; }
+@media (max-width: 760px) { .quadrantes { grid-template-columns: 1fr; } }
+.quadrante { text-align: left; background: var(--superficie-2); border: 2px solid var(--borda); border-radius: var(--raio); padding: 12px 14px; color: var(--texto); cursor: pointer; min-width: 0; font: inherit; }
+.quadrante.ativo { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 35%, transparent); }
+.quadrante-topo { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.quadrante ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.quadrante li { display: flex; gap: 10px; justify-content: space-between; font-size: .86rem; min-width: 0; }
+.quadrante li .valores { flex: 0 0 auto; white-space: nowrap; color: var(--texto-2); }
+.eixos { display: flex; justify-content: space-between; margin-top: 4px; }
+.subtitulo-secao { font-size: 1.05rem; margin: 18px 0 8px; }
+.col-produto { min-width: 220px; max-width: 360px; }
+.sem-quebra { white-space: nowrap; }

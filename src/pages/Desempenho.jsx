@@ -100,29 +100,42 @@ function Conteudo({ r, minimo }) {
       </div>
 
       <Cartao titulo="O que vale mais a pena">
-        <Mapa lista={rel} mQtd={r.mQtd} mMargem={r.mMargem} />
-        <div className="legenda-classes">
-          {Object.entries(CLASSES).map(([k, [nome, desc, cor]]) => (
-            <button key={k} className={`botao ${classe === k ? 'primario' : ''}`} onClick={() => setClasse(classe === k ? '' : k)} title={desc}>
-              <span style={{ color: classe === k ? undefined : cor }}>{nome}</span> ({r.lista.filter((x) => x.classe === k).length})
-            </button>
-          ))}
+        <p className="dica">Cada produto é comparado com a mediana do período ({int(r.mQtd)} unidades vendidas e margem de {pct(r.mMargem)}). Produtos com menos de {minimo} vendas ou sem custo cadastrado ficam de fora. Clique num quadro para filtrar a tabela.</p>
+        <div className="quadrantes">
+          {['joia', 'estrela', 'rever', 'volume'].map((k) => {
+            const [nome, desc, cor] = CLASSES[k]
+            const itens = r.lista.filter((x) => x.classe === k).sort((a, b) => b.lucro - a.lucro)
+            return (
+              <button key={k} className={`quadrante ${classe === k ? 'ativo' : ''}`} style={{ borderColor: cor }} onClick={() => setClasse(classe === k ? '' : k)}>
+                <div className="quadrante-topo"><b style={{ color: cor }}>{nome}</b><span>{itens.length} produto(s)</span></div>
+                <div className="dica">{desc}</div>
+                <ul>
+                  {itens.slice(0, 6).map((x) => (
+                    <li key={x.id}><span className="nome-produto" title={x.nome}>{x.nome}</span><span className="valores">{int(x.qtd)} un · {pct(x.margem)}</span></li>
+                  ))}
+                  {itens.length > 6 && <li className="dica">+ {itens.length - 6} na tabela abaixo</li>}
+                  {!itens.length && <li className="dica">Nenhum produto.</li>}
+                </ul>
+              </button>
+            )
+          })}
         </div>
-        <p className="dica">Cada bolinha é um produto: mais à direita vende mais, mais acima tem margem maior, e o tamanho é o lucro total. As linhas tracejadas são a mediana ({int(r.mQtd)} un · {pct(r.mMargem)}). Produtos com menos de {minimo} vendas no período ficam de fora da classificação.</p>
+        <div className="eixos dica"><span>↑ margem maior</span><span>vende mais →</span></div>
       </Cartao>
 
       {semCusto.length > 0 && <Aviso tipo="aviso">Sem custo cadastrado (lucro e margem ficam altos demais e eles ficam fora dos rankings): {semCusto.map((x) => x.sku).join(', ')}. Informe o custo em Produtos.</Aviso>}
 
+      <h2 className="subtitulo-secao">{classe ? CLASSES[classe][0] : 'Todos os produtos'} <small className="dica">(ordenados por lucro)</small>{classe && <button className="link" onClick={() => setClasse('')}> mostrar todos</button>}</h2>
       <div className="tabela-rolagem">
         <table className="tabela compacta">
-          <thead><tr><th>Produto</th><th>Classe</th><th className="num">Vendidas</th><th className="num">Vendas/mês</th><th className="num">Preço médio</th><th className="num">Faturamento</th><th className="num">Custo</th><th className="num">Lucro</th><th className="num">Lucro/un</th><th className="num">Margem</th><th className="num">Retorno</th><th className="num">Estoque</th></tr></thead>
+          <thead><tr><th>Produto</th><th>Classe</th><th className="num">Vendidas</th><th className="num">Faturamento</th><th className="num">Lucro</th><th className="num">Lucro/un</th><th className="num">Margem</th><th className="num">Retorno</th><th className="num">Estoque</th></tr></thead>
           <tbody>
             {tabela.map((x) => (
               <tr key={x.id}>
-                <td>{x.nome}<div className="dica">{x.sku}</div></td>
-                <td>{x.classe ? <span title={CLASSES[x.classe][1]}>{CLASSES[x.classe][0]}</span> : <span className="dica">{x.semCusto ? 'sem custo' : 'poucas vendas'}</span>}</td>
-                <td className="num">{int(x.qtd)}</td><td className="num">{(Math.round(x.porMes * 10) / 10).toLocaleString('pt-BR')}</td>
-                <td className="num">{moeda(x.ticket)}</td><td className="num">{moeda(x.receita)}</td><td className="num">{x.semCusto ? '—' : moeda(x.custo)}</td>
+                <td className="col-produto"><span className="nome-produto" title={x.nome}>{x.nome}</span><div className="dica">{x.sku}</div></td>
+                <td className="sem-quebra">{x.classe ? <span title={CLASSES[x.classe][1]}>{CLASSES[x.classe][0]}</span> : <span className="dica">{x.semCusto ? 'sem custo' : 'poucas vendas'}</span>}</td>
+                <td className="num">{int(x.qtd)}<div className="dica">{(Math.round(x.porMes * 10) / 10).toLocaleString('pt-BR')}/mês</div></td>
+                <td className="num">{moeda(x.receita)}<div className="dica">média {moeda(x.ticket)}</div></td>
                 <td className={`num ${x.lucro < 0 ? 'neg' : ''}`}><b>{moeda(x.lucro)}</b></td><td className="num">{moeda(x.lucroUn)}</td>
                 <td className={`num ${x.margem < 10 ? 'neg' : ''}`}>{pct(x.margem)}</td><td className="num">{x.roi === null ? '—' : pct(x.roi)}</td>
                 <td className="num">{int(x.estoque)}</td>
@@ -145,7 +158,7 @@ function Ranking({ titulo, lista, campo, valor, alerta }) {
             const v = Math.abs(Number(x[campo]) || 0)
             return (
               <li key={x.id}>
-                <div className="ranking-linha"><span title={x.nome}>{x.nome}</span><b className={alerta ? 'neg' : ''}>{valor(x)}</b></div>
+                <div className="ranking-linha"><span className="nome-produto" title={x.nome}>{x.nome}</span><b className={alerta ? 'neg' : ''}>{valor(x)}</b></div>
                 <Barra valor={v} max={max} cor={alerta ? 'var(--neg)' : undefined} />
               </li>
             )
@@ -153,41 +166,5 @@ function Ranking({ titulo, lista, campo, valor, alerta }) {
         </ol>
       )}
     </Cartao>
-  )
-}
-
-// Gráfico de dispersão: vendas (x) × margem (y), bolha = lucro
-function Mapa({ lista, mQtd, mMargem }) {
-  if (!lista.length) return <p className="dica">Sem produtos com vendas suficientes no período.</p>
-  const W = 720, H = 360, P = 48
-  const maxQ = Math.max(...lista.map((x) => x.qtd)) * 1.08
-  const minM = Math.min(0, ...lista.map((x) => x.margem)), maxM = Math.max(...lista.map((x) => x.margem)) * 1.1
-  const maxL = Math.max(1, ...lista.map((x) => Math.abs(x.lucro)))
-  const X = (q) => P + (q / maxQ) * (W - 2 * P)
-  const Y = (m) => H - P - ((m - minM) / (maxM - minM || 1)) * (H - 2 * P)
-  const cor = (x) => CLASSES[x.classe]?.[2] || 'var(--texto-2)'
-  return (
-    <div className="mapa-produtos">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Vendas por margem de cada produto">
-        <line x1={P} y1={H - P} x2={W - P} y2={H - P} stroke="var(--borda)" />
-        <line x1={P} y1={P / 2} x2={P} y2={H - P} stroke="var(--borda)" />
-        <line x1={X(mQtd)} y1={P / 2} x2={X(mQtd)} y2={H - P} stroke="var(--texto-2)" strokeDasharray="4 4" opacity=".5" />
-        <line x1={P} y1={Y(mMargem)} x2={W - P} y2={Y(mMargem)} stroke="var(--texto-2)" strokeDasharray="4 4" opacity=".5" />
-        <text x={W - P} y={H - 14} textAnchor="end" fontSize="12" fill="var(--texto-2)">unidades vendidas →</text>
-        <text x={14} y={P / 2 + 4} fontSize="12" fill="var(--texto-2)">margem ↑</text>
-        <text x={W - P - 4} y={P / 2 + 14} textAnchor="end" fontSize="11" fill="var(--ok)">⭐ Estrelas</text>
-        <text x={P + 6} y={P / 2 + 14} fontSize="11" fill="#7a5af8">💎 Joias</text>
-        <text x={W - P - 4} y={H - P - 8} textAnchor="end" fontSize="11" fill="var(--acento)">🚚 Carros-chefe</text>
-        <text x={P + 6} y={H - P - 8} fontSize="11" fill="var(--neg)">⚠️ Rever</text>
-        {lista.map((x) => (
-          <g key={x.id}>
-            <circle cx={X(x.qtd)} cy={Y(x.margem)} r={5 + 18 * Math.sqrt(Math.abs(x.lucro) / maxL)} fill={cor(x)} fillOpacity=".35" stroke={cor(x)}>
-              <title>{`${x.sku} — ${x.nome}\n${int(x.qtd)} vendidas · margem ${pct(x.margem)} · lucro ${moeda(x.lucro)}`}</title>
-            </circle>
-            <text x={X(x.qtd)} y={Y(x.margem) + 3} textAnchor="middle" fontSize="9" fill="var(--texto)">{x.sku}</text>
-          </g>
-        ))}
-      </svg>
-    </div>
   )
 }
