@@ -7,6 +7,7 @@ import { acharCabecalho, acharColuna, lerArquivo } from '../lib/planilha'
 import { dataBR, hojeISO, lerData, lerNumero, moeda } from '../lib/formato'
 
 const d = (iso) => (iso ? dataBR(iso + 'T12:00') : '—')
+const diasAtras = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
 
 export default function Financeiro() {
   const [aba, setAba] = useState('fluxo')
@@ -25,7 +26,8 @@ function useFinanceiro() {
   return useDados(async () => {
     const [receber, pagar, config] = await Promise.all([
       buscarTudo(() => supabase.from('vw_vendas').select('id,data,conta_id,conta_nome,codigo_externo,liquido_previsto,previsao_recebimento,itens_resumo')
-        .eq('status', 'concluida').is('valor_recebido', null).neq('origem', 'historico')),
+        // vendas importadas como histórico também entram, se a liberação for recente (as antigas já foram recebidas)
+        .eq('status', 'concluida').is('valor_recebido', null).or(`origem.neq.historico,previsao_recebimento.gte.${diasAtras(90)}`)),
       supabase.from('contas_pagar').select('*').is('pago_em', null).order('vencimento').then(ok),
       supabase.from('config_geral').select('*').eq('id', 1).single().then(ok),
     ])
@@ -189,7 +191,7 @@ function Conciliacao() {
   const [imp, setImp] = useState(null)
   const { dados, erro, carregando, recarregar } = useDados(async () => {
     let q = supabase.from('vw_vendas').select('id,data,conta_id,conta_nome,codigo_externo,receita,taxa_marketplace,frete,liquido_previsto,valor_recebido,data_recebimento,diferenca_recebido,itens_resumo')
-      .eq('status', 'concluida').neq('origem', 'historico').gte('data', `${f.de}T00:00:00-03:00`).lte('data', `${f.ate}T23:59:59-03:00`).order('data', { ascending: false }).limit(2000)
+      .eq('status', 'concluida').gte('data', `${f.de}T00:00:00-03:00`).lte('data', `${f.ate}T23:59:59-03:00`).order('data', { ascending: false }).limit(2000)
     if (f.conta) q = q.eq('conta_id', Number(f.conta))
     return ok(await q)
   }, [f.de, f.ate, f.conta])
