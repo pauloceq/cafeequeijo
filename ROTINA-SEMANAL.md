@@ -33,7 +33,8 @@ Abrir uma aba **em segundo plano** do painel (o usuário pode estar usando outra
 - Compras do AliExpress: `POST /rest/v1/rpc/criar_pedido_compra` com `{p:{fornecedor_id:1, numero_externo, data_pedido,
   status_externo, moeda:'BRL', total_original, observacao:'AliExpress — <loja>', itens:[{produto_id, quantidade,
   custo_unitario (preço do item rateado pelo total do pedido, com frete/impostos), descricao_externa, variacao_externa,
-  preco_original}]}}`. Pedidos já entregues: depois chamar `rpc/receber_pedido_compra` para dar entrada no estoque
+  preco_original}]}}`. Pedidos ainda a caminho: mandar `status:'enviado'` e `previsao_chegada` (≈ data + 20 dias) para aparecerem em "a caminho".
+  Pedidos já entregues: depois chamar `rpc/receber_pedido_compra` para dar entrada no estoque
   (ver schema.sql). Ignorar itens que não são de café (compras pessoais) e pedidos cancelados.
 - Ligar SKU/anúncio a produto: tabela `anuncios` (`conta_id`, `codigo`, `sku_marketplace`, `produto_id`). SKUs que são
   apelidos já estão lá. SKU desconhecido: NÃO inventar produto — registrar a venda só se der para identificar com
@@ -42,12 +43,17 @@ Abrir uma aba **em segundo plano** do painel (o usuário pode estar usando outra
   numa variável `window.__prog` em chamadas seguintes.
 
 ## Fonte de cada loja
-- **Mercado Livre (1 e 2):** `vendedores.mercadolivre.com.br/vendas/omni/lista?...&startPeriod=WITH_DATE_CLOSED_...`
+- **Mercado Livre (1 e 2) — jeito mais rápido (usado em 14/11):** abrir `vendedores.mercadolivre.com.br/vendas/omni/lista?limit=50&offset=0&startPeriod=WITH_DATE_CLOSED_6M_OLD&sort=DATE_CLOSED_DESC`,
+  ler da lista (innerText de `main`) id, data ("14 nov 09:11 hs"), "N unidade(s) / R$ x / SKU: X"; para cada venda nova
+  buscar `/vendas/<id>/detalhe` (fetch na mesma origem) e ler "Preço do produto", "Tarifa de venda total", "Envios".
+  SKU novo com o mesmo título de um produto já cadastrado: criar a linha em `anuncios` (apelido) antes de lançar.
+- **Mercado Livre (alternativa, Excel):** `vendedores.mercadolivre.com.br/vendas/omni/lista?...&startPeriod=WITH_DATE_CLOSED_...`
   → "Baixar arquivo Excel de vendas" → aparece "Baixar" quando pronto. Planilha: cabeçalho na linha 6; linhas de
   "Pacote de N produtos" (SKU vazio) trazem tarifas/total do pacote e as N linhas seguintes (Total vazio) são os itens.
   Lançar só concluídas (sem "Cancelada", "Devolução", "reembolso para o comprador"; mediação "Te demos o dinheiro" conta).
   taxa = −"Tarifa de venda e impostos"; frete = −"Tarifas de envio" − "Receita por envio" (mín. 0); líquido = "Total (BRL)".
-- **Amazon (1 e 2):** `sellercentral.amazon.com.br/payments/api/events-view?limit=50&offset=<página>&accountType=ALL&
+- **Amazon (1 e 2):** pedidos (data, SKU, qtd): `/orders-api/search?limit=100&offset=0&sort=order_date_desc&date-range=last-14&fulfillmentType=all&orderStatus=all`
+  (Accept: application/json); taxas: `sellercentral.amazon.com.br/payments/api/events-view?limit=50&offset=<página a partir de 1>&accountType=ALL&
   fiqlFiltersString=(startTimestamp==<ms>);(endTimestamp==<ms>)&sortType=DESC` (JSON). Por pedido: "Pagamento do pedido"
   (PRODUCT_CHARGES, FEES_TOTAL, OTHER_TOTAL = frete cobrado), "Tarifas de serviço/Delivery by Amazon" (frete DBA),
   "Reembolso" (descartar o pedido). Produto pela descrição (Despressurizado→FILTRO0018, Filtro Pressurizado→FILTRO0028,
