@@ -25,7 +25,7 @@ export default function Painel() {
       // vendas cujo dinheiro ainda não foi liberado pela plataforma
       ehDono ? buscarTudo(() => supabase.from('vw_vendas').select('id,liquido_previsto,previsao_recebimento')
         .eq('status', 'concluida').is('valor_recebido', null)
-        .gte('previsao_recebimento', new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10))) : [],
+        .gte('previsao_recebimento', hoje)) : [],
     ])
     return { tarifas: [], produtoConta: [], ...base, vendasMes, compras, prejuizo, pagar, aLiberar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
   }, [ehDono])
@@ -44,7 +44,7 @@ export default function Painel() {
     { qDia: 0, fDia: 0, qMes: 0, fMes: 0, lMes: 0 })
 
   const totalALiberar = aLiberar.reduce((s, v) => s + Number(v.liquido_previsto || 0), 0)
-  const proximaLiberacao = aLiberar.map((v) => v.previsao_recebimento).filter((d) => d && d >= hojeISO()).sort()[0]
+  const proximaLiberacao = aLiberar.map((v) => v.previsao_recebimento).filter(Boolean).sort()[0]
   const abaixoMinimo = produtos.filter((p) => p.ativo && p.tipo === 'peca' && Number(p.estoque_real) <= Number(p.estoque_minimo))
 
   // anúncios abaixo do preço mínimo (lucro zero)
