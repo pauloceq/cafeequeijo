@@ -254,7 +254,7 @@ a.numero:hover { border-color: var(--texto-2); }
 
   /* tabelas: compactas e com rolagem lateral dentro da própria caixa */
   .cartao .tabela, .tabela-rolagem .tabela { font-size: .8rem; }
-  .cartao > .tabela, .cartao > div > .tabela { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cartao { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tabela th { font-size: .66rem; letter-spacing: 0; }
   .tabela th, .tabela td { padding: 6px 6px; }
   .tabela td.nowrap { white-space: nowrap; }

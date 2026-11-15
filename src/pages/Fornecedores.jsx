@@ -24,13 +24,13 @@ export default function Fornecedores() {
       {carregando && <Carregando />}
       <Aviso tipo="erro">{erro}</Aviso>
       {dados && (dados.length === 0 ? <Vazio>Nenhum fornecedor.</Vazio> : (
-        <table className="tabela">
+        <div className="tabela-rolagem"><table className="tabela">
           <thead><tr><th>Nome</th><th>Contato</th><th>Telefone / e-mail</th><th className="num">Prazo de entrega</th><th /></tr></thead>
           <tbody>{dados.map((f) => (
             <tr key={f.id}><td><b>{f.nome}</b>{f.tipo === 'aliexpress' && <div className="dica">usado na importação do AliExpress</div>}</td><td>{f.contato}</td><td>{[f.telefone, f.email].filter(Boolean).join(' · ')}</td><td className="num">{f.prazo_entrega_dias} dias</td>
               <td><button className="link" onClick={() => setEd(f)}>editar</button></td></tr>
           ))}</tbody>
-        </table>
+        </table></div>
       ))}
       {ed && (
         <Modal titulo={ed.id ? ed.nome : 'Novo fornecedor'} onFechar={() => setEd(null)}>
