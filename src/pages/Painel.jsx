@@ -65,10 +65,9 @@ export default function Painel() {
   const tot = porConta.reduce((t, r) => ({ qDia: t.qDia + r.qDia, fDia: t.fDia + r.fDia, qMes: t.qMes + r.qMes, fMes: t.fMes + r.fMes, lMes: t.lMes + r.lMes }),
     { qDia: 0, fDia: 0, qMes: 0, fMes: 0, lMes: 0 })
 
-  const totalALiberar = aLiberar.reduce((s, v) => s + Number(v.liquido_previsto || 0), 0)
   const aLiberarMes = aLiberar.filter((v) => new Date(v.data) >= new Date(dados.inicioMes))
   const totalALiberarMes = aLiberarMes.reduce((s, v) => s + Number(v.liquido_previsto || 0), 0)
-  const proximaLiberacao = aLiberar.map((v) => v.previsao_recebimento).filter(Boolean).sort()[0]
+  const proximaLiberacao = aLiberarMes.map((v) => v.previsao_recebimento).filter(Boolean).sort()[0]
   const abaixoMinimo = produtos.filter((p) => p.ativo && p.tipo === 'peca' && Number(p.estoque_real) <= Number(p.estoque_minimo))
 
   // anúncios abaixo do preço mínimo (lucro zero)
@@ -91,9 +90,8 @@ export default function Painel() {
         <div className="numero"><span>Vendas no mês</span><b>{tot.qMes}</b><small>{moeda(tot.fMes)}</small></div>
         {ehDono && <div className="numero"><span>Lucro no mês</span><b className={tot.lMes < 0 ? 'neg' : ''}>{moeda(tot.lMes)}</b><small>{tot.fMes ? pct((tot.lMes / tot.fMes) * 100) + ' de margem' : '—'}</small></div>}
         {ehDono
-          ? <Link to="/financeiro" className="numero"><span>A liberar nas plataformas</span><b>{moeda(totalALiberar)}</b>
-              <small>do mês: {moeda(totalALiberarMes)} ({aLiberarMes.length} venda{aLiberarMes.length === 1 ? '' : 's'})</small>
-              <small>total: {aLiberar.length} venda{aLiberar.length === 1 ? '' : 's'}{proximaLiberacao ? ` · próxima em ${proximaLiberacao.slice(8, 10)}/${proximaLiberacao.slice(5, 7)}` : ''}</small></Link>
+          ? <Link to="/financeiro" className="numero"><span>A liberar do mês</span><b>{moeda(totalALiberarMes)}</b>
+              <small>{aLiberarMes.length} venda{aLiberarMes.length === 1 ? '' : 's'}{proximaLiberacao ? ` · próxima em ${proximaLiberacao.slice(8, 10)}/${proximaLiberacao.slice(5, 7)}` : ''}</small></Link>
           : <div className="numero"><span>Abaixo do mínimo</span><b className={abaixoMinimo.length ? 'neg' : ''}>{abaixoMinimo.length}</b><small>peças</small></div>}
       </div>
 
