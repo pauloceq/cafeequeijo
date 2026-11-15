@@ -13,7 +13,7 @@ export default function Painel() {
     const hoje = hojeISO()
     const inicioMes = `${hoje.slice(0, 8)}01T00:00:00-03:00`
     const base = await carregarBase({ tarifas: ehDono, config: true, produtoConta: ehDono })
-    const [vendasMes, compras, prejuizo, pagar] = await Promise.all([
+    const [vendasMes, compras, prejuizo, pagar, aLiberar] = await Promise.all([
       buscarTudo(() => supabase.from('vw_vendas').select('id,data,conta_id,status,receita,lucro').gte('data', inicioMes).eq('status', 'concluida')),
       supabase.from('pedidos_compra').select('id,status,data_pedido,previsao_chegada,fornecedores(nome),numero_externo')
         .in('status', ['rascunho', 'enviado']).order('previsao_chegada', { nullsFirst: false }).then(ok),
@@ -22,14 +22,18 @@ export default function Painel() {
         .order('data', { ascending: false }).limit(20).then(ok) : [],
       ehDono ? supabase.from('contas_pagar').select('*').is('pago_em', null)
         .lte('vencimento', new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)).order('vencimento').then(ok) : [],
+      // vendas cujo dinheiro ainda não foi liberado pela plataforma
+      ehDono ? buscarTudo(() => supabase.from('vw_vendas').select('id,liquido_previsto,previsao_recebimento')
+        .eq('status', 'concluida').is('valor_recebido', null)
+        .gte('previsao_recebimento', new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10))) : [],
     ])
-    return { tarifas: [], produtoConta: [], ...base, vendasMes, compras, prejuizo, pagar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
+    return { tarifas: [], produtoConta: [], ...base, vendasMes, compras, prejuizo, pagar, aLiberar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
   }, [ehDono])
 
   if (carregando) return <Pagina titulo="Painel"><Carregando /></Pagina>
   if (erro) return <Pagina titulo="Painel"><Aviso tipo="erro">{erro}</Aviso></Pagina>
 
-  const { contas, produtos, vendasMes, compras, prejuizo, pagar, inicioDia, tarifas, config, produtoConta, carregadoComoDono } = dados
+  const { contas, produtos, vendasMes, compras, prejuizo, pagar, aLiberar = [], inicioDia, tarifas, config, produtoConta, carregadoComoDono } = dados
   const porConta = contas.map((c) => {
     const mes = vendasMes.filter((v) => v.conta_id === c.id)
     const dia = mes.filter((v) => new Date(v.data) >= inicioDia)
@@ -39,6 +43,8 @@ export default function Painel() {
   const tot = porConta.reduce((t, r) => ({ qDia: t.qDia + r.qDia, fDia: t.fDia + r.fDia, qMes: t.qMes + r.qMes, fMes: t.fMes + r.fMes, lMes: t.lMes + r.lMes }),
     { qDia: 0, fDia: 0, qMes: 0, fMes: 0, lMes: 0 })
 
+  const totalALiberar = aLiberar.reduce((s, v) => s + Number(v.liquido_previsto || 0), 0)
+  const proximaLiberacao = aLiberar.map((v) => v.previsao_recebimento).filter((d) => d && d >= hojeISO()).sort()[0]
   const abaixoMinimo = produtos.filter((p) => p.ativo && p.tipo === 'peca' && Number(p.estoque_real) <= Number(p.estoque_minimo))
 
   // anúncios abaixo do preço mínimo (lucro zero)
@@ -60,7 +66,10 @@ export default function Painel() {
         <div className="numero"><span>Vendas hoje</span><b>{tot.qDia}</b><small>{moeda(tot.fDia)}</small></div>
         <div className="numero"><span>Vendas no mês</span><b>{tot.qMes}</b><small>{moeda(tot.fMes)}</small></div>
         {ehDono && <div className="numero"><span>Lucro no mês</span><b className={tot.lMes < 0 ? 'neg' : ''}>{moeda(tot.lMes)}</b><small>{tot.fMes ? pct((tot.lMes / tot.fMes) * 100) + ' de margem' : '—'}</small></div>}
-        <div className="numero"><span>Abaixo do mínimo</span><b className={abaixoMinimo.length ? 'neg' : ''}>{abaixoMinimo.length}</b><small>peças</small></div>
+        {ehDono
+          ? <Link to="/financeiro" className="numero"><span>A liberar nas plataformas</span><b>{moeda(totalALiberar)}</b>
+              <small>{aLiberar.length} venda{aLiberar.length === 1 ? '' : 's'}{proximaLiberacao ? ` · próxima em ${proximaLiberacao.slice(8, 10)}/${proximaLiberacao.slice(5, 7)}` : ''}</small></Link>
+          : <div className="numero"><span>Abaixo do mínimo</span><b className={abaixoMinimo.length ? 'neg' : ''}>{abaixoMinimo.length}</b><small>peças</small></div>}
       </div>
 
       <div className="grade-2">
