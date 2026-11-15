@@ -232,3 +232,39 @@ details summary { cursor: pointer; padding: 6px 0; }
 a.numero { color: inherit; text-decoration: none; }
 a.numero:hover { border-color: var(--texto-2); }
 .tabela small.sub { font-size: .75rem; margin: 0; }
+
+/* ===== Celular ===== */
+@media (max-width: 600px) {
+  html { -webkit-text-size-adjust: 100%; }
+  .conteudo { padding: 12px 10px 60px; }
+  .pagina-topo { margin-bottom: 12px; gap: 10px; }
+  .pagina-topo h1 { font-size: 1.4rem; }
+  .pagina-topo .acoes, .cartao-topo .acoes { width: 100%; }
+  .cartao { padding: 12px 10px; margin-bottom: 12px; }
+  .cartao-topo { margin-bottom: 8px; gap: 8px; }
+  .cartao-topo h2, .cartao-topo h3 { font-size: 1.05rem; }
+  .grade-2 { gap: 12px; }
+
+  /* caixas de números: 2 por linha, texto sempre dentro */
+  .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .numero { padding: 10px; min-width: 0; }
+  .numero span { font-size: .75rem; line-height: 1.2; }
+  .numero b { font-size: 1.1rem; overflow-wrap: anywhere; line-height: 1.25; }
+  .numero small { font-size: .72rem; line-height: 1.25; overflow-wrap: anywhere; }
+
+  /* tabelas: compactas e com rolagem lateral dentro da própria caixa */
+  .cartao .tabela, .tabela-rolagem .tabela { font-size: .8rem; }
+  .cartao > .tabela, .cartao > div > .tabela { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tabela th { font-size: .66rem; letter-spacing: 0; }
+  .tabela th, .tabela td { padding: 6px 6px; }
+  .tabela .nowrap { white-space: normal; }
+  .tabela small.sub { display: block; }
+
+  /* filtros e formulários ocupam a largura toda */
+  .filtros { gap: 8px; }
+  .filtros > *, .filtros label, .filtros select, .filtros input { min-width: 0; max-width: 100%; }
+  .filtros label { flex: 1 1 150px; }
+  .filtros select, .filtros input { width: 100%; flex: 1 1 150px; }
+  input, select, textarea { font-size: 16px; } /* evita o zoom automático do celular */
+  .grade-colunas { grid-template-columns: 1fr; }
+}
