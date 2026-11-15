@@ -239,7 +239,7 @@ a.numero:hover { border-color: var(--texto-2); }
   .conteudo { padding: 12px 10px 60px; }
   .pagina-topo { margin-bottom: 12px; gap: 10px; }
   .pagina-topo h1 { font-size: 1.4rem; }
-  .pagina-topo .acoes, .cartao-topo .acoes { width: 100%; }
+  .pagina-topo .acoes { width: 100%; }
   .cartao { padding: 12px 10px; margin-bottom: 12px; }
   .cartao-topo { margin-bottom: 8px; gap: 8px; }
   .cartao-topo h2, .cartao-topo h3 { font-size: 1.05rem; }
@@ -257,7 +257,9 @@ a.numero:hover { border-color: var(--texto-2); }
   .cartao > .tabela, .cartao > div > .tabela { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tabela th { font-size: .66rem; letter-spacing: 0; }
   .tabela th, .tabela td { padding: 6px 6px; }
-  .tabela .nowrap { white-space: normal; }
+  .tabela td.nowrap { white-space: nowrap; }
+  .so-tela-grande { display: none; }
+  .so-celular { display: inline !important; }
   .tabela small.sub { display: block; }
 
   /* filtros e formulários ocupam a largura toda */
@@ -268,3 +270,5 @@ a.numero:hover { border-color: var(--texto-2); }
   input, select, textarea { font-size: 16px; } /* evita o zoom automático do celular */
   .grade-colunas { grid-template-columns: 1fr; }
 }
+
+.so-celular { display: none; }

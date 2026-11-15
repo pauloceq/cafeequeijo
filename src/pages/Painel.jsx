@@ -100,12 +100,12 @@ export default function Painel() {
             {Object.entries(PERIODOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
           </select>}>
           <table className="tabela">
-            <thead><tr><th>Conta</th><th className="num">Vendas</th><th className="num">Faturamento</th>
+            <thead><tr><th>Conta</th><th className="num">Qtd</th><th className="num">Faturam.</th>
               <th className="num" title="Preço menos tarifa e frete da plataforma">Líquido</th>{ehDono && <th className="num">Lucro</th>}</tr></thead>
             <tbody>
               {linhasPeriodo.map((r) => (
                 <tr key={r.conta.id}>
-                  <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} />{r.conta.nome}</td>
+                  <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} /><span className="so-tela-grande">{r.conta.nome}</span><span className="so-celular">{r.conta.nome.replace('Mercado Livre', 'ML')}</span></td>
                   <td className="num">{r.q}</td><td className="num">{moeda(r.fat)}</td>
                   <td className="num">{moeda(r.liq)}{r.fat > 0 && <small className="sub"> {pct((r.liq / r.fat) * 100)}</small>}</td>
                   {ehDono && <td className={`num ${r.luc < 0 ? 'neg' : ''}`}>{moeda(r.luc)}</td>}
