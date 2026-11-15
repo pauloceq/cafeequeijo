@@ -259,9 +259,6 @@ a.numero:hover { border-color: var(--texto-2); }
   .tabela th, .tabela td { padding: 6px 6px; }
   .tabela td.nowrap { white-space: nowrap; }
   .col-barra { display: none; }
-  .tabela-contas { display: none !important; }
-  .lista-contas { display: grid !important; }
-  .tabela small.sub { display: block; }
 
   /* filtros e formulários ocupam a largura toda */
   .filtros { gap: 8px; }
@@ -281,3 +278,11 @@ a.numero:hover { border-color: var(--texto-2); }
 .linha-conta-valores div { display: flex; flex-direction: column; min-width: 0; }
 .linha-conta-valores small { color: var(--texto-2); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .linha-conta-valores span { font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Vendas por conta: tabela quando a caixa é larga, cartões quando é estreita */
+.cartao-contas { container-type: inline-size; }
+.tabela small.sub { display: block; font-size: .72rem; margin: 0; }
+@container (max-width: 560px) {
+  .tabela-contas { display: none; }
+  .lista-contas { display: grid; }
+}
