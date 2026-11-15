@@ -37,9 +37,14 @@ jobs:
             echo "VITE_SUPABASE_ANON_KEY=$KEY_VAR" >> "$GITHUB_ENV"
           elif [ -n "$TOKEN" ] && [ -n "$REF" ]; then
             REF=$(echo "$REF" | tr -d '[:space:]' | sed -E 's#^https?://##; s#^.*/project/##; s#\.supabase\.co.*##; s#/.*##')
-            CHAVE=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys" -H "Authorization: Bearer $TOKEN" \
-              | jq -r '([.[] | select(.type == "publishable")][0].api_key) // ([.[] | select(.name == "anon")][0].api_key) // empty')
-            if [ -z "$CHAVE" ]; then echo "::warning::Não consegui ler a chave pública do Supabase; o app vai pedir na primeira tela."; exit 0; fi
+            RESP=$(curl -sS "https://api.supabase.com/v1/projects/$REF/api-keys" -H "Authorization: Bearer $TOKEN" || true)
+            CHAVE=$(echo "$RESP" | jq -r 'if type == "array" then (([.[] | select(.type == "publishable")][0].api_key) // ([.[] | select(.name == "anon")][0].api_key) // empty) else empty end' 2>/dev/null || true)
+            if [ -z "$CHAVE" ]; then
+              # chave pública (publishable) — já vai no site publicado, não é segredo
+              echo "::warning::A API do Supabase não devolveu as chaves (token expirado?). Usando a chave pública conhecida."
+              REF=oggbfkdmbuwadoafnncd
+              CHAVE=sb_publishable_CYMr6j-ZMmqsOwMjWA4BIQ_sDL7lBGQ
+            fi
             echo "::add-mask::$CHAVE"
             echo "VITE_SUPABASE_URL=https://$REF.supabase.co" >> "$GITHUB_ENV"
             echo "VITE_SUPABASE_ANON_KEY=$CHAVE" >> "$GITHUB_ENV"
