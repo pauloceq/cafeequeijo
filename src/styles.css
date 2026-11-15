@@ -258,6 +258,7 @@ a.numero:hover { border-color: var(--texto-2); }
   .tabela th { font-size: .66rem; letter-spacing: 0; }
   .tabela th, .tabela td { padding: 6px 6px; }
   .tabela td.nowrap { white-space: nowrap; }
+  .col-barra { display: none; }
   .tabela-contas { display: none !important; }
   .lista-contas { display: grid !important; }
   .tabela small.sub { display: block; }

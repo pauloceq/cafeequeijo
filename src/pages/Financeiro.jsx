@@ -96,16 +96,16 @@ function Fluxo() {
       </Cartao>
       <div className="tabela-rolagem">
         <table className="tabela">
-          <thead><tr><th>Semana</th><th className="num">Liberações</th><th>Por conta</th><th className="num">Saídas</th><th className="num">Saldo previsto</th><th style={{ width: '22%' }} /></tr></thead>
+          <thead><tr><th>Semana</th><th className="num">Liberações</th><th>Por conta</th><th className="num">Saídas</th><th className="num">Saldo previsto</th><th className="col-barra" style={{ width: '22%' }} /></tr></thead>
           <tbody>
             {linhas.map((l, i) => (
               <tr key={i} className={l.atual ? 'destaque' : l.passado ? 'passado' : ''}>
-                <td>{fmt(l.ini)} a {fmt(l.fim)}<div className="dica">{l.passado ? 'liberado' : l.atual ? 'esta semana' : 'previsto'}{l.qtd ? ` · ${l.qtd} venda(s)` : ''}</div></td>
+                <td><span className="sem-quebra">{fmt(l.ini)} a {fmt(l.fim)}</span><div className="dica">{l.passado ? 'liberado' : l.atual ? 'esta semana' : 'previsto'}{l.qtd ? ` · ${l.qtd} venda(s)` : ''}</div></td>
                 <td className="num"><b>{moeda(l.ent)}</b></td>
-                <td className="dica">{Object.entries(l.porConta).sort((a, b) => b[1] - a[1]).map(([c, v]) => `${c}: ${moeda(v)}`).join(' · ')}</td>
+                <td className="dica">{Object.entries(l.porConta).sort((a, b) => b[1] - a[1]).map(([c, v]) => <div key={c} className="sem-quebra">{c.replace('Mercado Livre', 'ML')}: {moeda(v)}</div>)}</td>
                 <td className="num neg">{moeda(l.sai)}</td>
                 <td className={`num ${l.saldo < 0 ? 'neg' : ''}`}>{l.passado ? '—' : <b>{moeda(l.saldo)}</b>}</td>
-                <td><Barra valor={l.ent} max={max} cor="var(--ok)" /><Barra valor={l.sai} max={max} cor="var(--neg)" /></td>
+                <td className="col-barra"><Barra valor={l.ent} max={max} cor="var(--ok)" /><Barra valor={l.sai} max={max} cor="var(--neg)" /></td>
               </tr>
             ))}
           </tbody>
