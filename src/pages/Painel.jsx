@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabase'
 import { useAuth } from '../auth'
@@ -7,14 +8,20 @@ import { carregarBase, buscarTudo } from '../lib/base'
 import { dataBR, hojeISO, moeda, numero, pct } from '../lib/formato'
 import { analisar, parametros, tarifaVigente } from '../lib/precificacao'
 
+const PERIODOS = { hoje: 'Hoje', d7: 'Últimos 7 dias', mes: 'Este mês', mesPassado: 'Mês passado', ano: 'Este ano' }
+
 export default function Painel() {
   const { ehDono } = useAuth()
+  const [periodo, setPeriodo] = useState('mes')
   const { dados, erro, carregando } = useDados(async () => {
     const hoje = hojeISO()
     const inicioMes = `${hoje.slice(0, 8)}01T00:00:00-03:00`
+    const d = new Date(`${hoje}T12:00:00-03:00`); d.setDate(1); d.setMonth(d.getMonth() - 1)
+    const inicioMesPassado = d.toISOString().slice(0, 10)
+    const inicioCarga = `${[inicioMesPassado, `${hoje.slice(0, 4)}-01-01`].sort()[0]}T00:00:00-03:00`
     const base = await carregarBase({ tarifas: ehDono, config: true, produtoConta: ehDono })
     const [vendasMes, compras, prejuizo, pagar, aLiberar] = await Promise.all([
-      buscarTudo(() => supabase.from('vw_vendas').select('id,data,conta_id,status,receita,lucro').gte('data', inicioMes).eq('status', 'concluida')),
+      buscarTudo(() => supabase.from('vw_vendas').select('id,data,conta_id,status,receita,lucro,liquido_previsto').gte('data', inicioCarga).eq('status', 'concluida')),
       supabase.from('pedidos_compra').select('id,status,data_pedido,previsao_chegada,fornecedores(nome),numero_externo')
         .in('status', ['rascunho', 'enviado']).order('previsao_chegada', { nullsFirst: false }).then(ok),
       ehDono ? supabase.from('vw_vendas').select('id,data,conta_nome,codigo_externo,receita,lucro,itens_resumo')
@@ -27,11 +34,26 @@ export default function Painel() {
         .eq('status', 'concluida').is('valor_recebido', null)
         .gte('previsao_recebimento', hoje)) : [],
     ])
-    return { tarifas: [], produtoConta: [], ...base, vendasMes, compras, prejuizo, pagar, aLiberar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
+    return { tarifas: [], produtoConta: [], ...base, vendasMes: vendasMes.filter((v) => new Date(v.data) >= new Date(inicioMes)), vendasPeriodo: vendasMes, inicioMesPassado, inicioMes,
+      compras, prejuizo, pagar, aLiberar, inicioDia: new Date(`${hoje}T00:00:00-03:00`), carregadoComoDono: ehDono }
   }, [ehDono])
 
   if (carregando) return <Pagina titulo="Painel"><Carregando /></Pagina>
   if (erro) return <Pagina titulo="Painel"><Aviso tipo="erro">{erro}</Aviso></Pagina>
+
+  const { vendasPeriodo, inicioMesPassado, inicioMes } = dados
+  const desde = {
+    hoje: dados.inicioDia, d7: new Date(dados.inicioDia.getTime() - 6 * 864e5), mes: new Date(inicioMes),
+    mesPassado: new Date(`${inicioMesPassado}T00:00:00-03:00`), ano: new Date(`${hojeISO().slice(0, 4)}-01-01T00:00:00-03:00`),
+  }[periodo]
+  const ate = periodo === 'mesPassado' ? new Date(inicioMes) : null
+  const noPeriodo = vendasPeriodo.filter((v) => { const t = new Date(v.data); return t >= desde && (!ate || t < ate) })
+  const somaP = (l, k) => l.reduce((s, v) => s + Number(v[k] || 0), 0)
+  const linhasPeriodo = dados.contas.map((c) => {
+    const l = noPeriodo.filter((v) => v.conta_id === c.id)
+    return { conta: c, q: l.length, fat: somaP(l, 'receita'), liq: somaP(l, 'liquido_previsto'), luc: somaP(l, 'lucro') }
+  })
+  const totP = { q: noPeriodo.length, fat: somaP(noPeriodo, 'receita'), liq: somaP(noPeriodo, 'liquido_previsto'), luc: somaP(noPeriodo, 'lucro') }
 
   const { contas, produtos, vendasMes, compras, prejuizo, pagar, aLiberar = [], inicioDia, tarifas, config, produtoConta, carregadoComoDono } = dados
   const porConta = contas.map((c) => {
@@ -73,20 +95,30 @@ export default function Painel() {
       </div>
 
       <div className="grade-2">
-        <Cartao titulo="Vendas por conta">
+        <Cartao titulo="Vendas por conta" acoes={
+          <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} aria-label="Período">
+            {Object.entries(PERIODOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
+          </select>}>
           <table className="tabela">
-            <thead><tr><th>Conta</th><th className="num">Hoje</th><th className="num">R$ hoje</th><th className="num">Mês</th><th className="num">R$ mês</th>{ehDono && <th className="num">Lucro mês</th>}</tr></thead>
+            <thead><tr><th>Conta</th><th className="num">Vendas</th><th className="num">Faturamento</th>
+              <th className="num" title="Preço menos tarifa e frete da plataforma">Líquido</th>{ehDono && <th className="num">Lucro</th>}</tr></thead>
             <tbody>
-              {porConta.map((r) => (
+              {linhasPeriodo.map((r) => (
                 <tr key={r.conta.id}>
                   <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} />{r.conta.nome}</td>
-                  <td className="num">{r.qDia}</td><td className="num">{moeda(r.fDia)}</td>
-                  <td className="num">{r.qMes}</td><td className="num">{moeda(r.fMes)}</td>
-                  {ehDono && <td className={`num ${r.lMes < 0 ? 'neg' : ''}`}>{moeda(r.lMes)}</td>}
+                  <td className="num">{r.q}</td><td className="num">{moeda(r.fat)}</td>
+                  <td className="num">{moeda(r.liq)}{r.fat > 0 && <small className="sub"> {pct((r.liq / r.fat) * 100)}</small>}</td>
+                  {ehDono && <td className={`num ${r.luc < 0 ? 'neg' : ''}`}>{moeda(r.luc)}</td>}
                 </tr>
               ))}
+              <tr className="destaque">
+                <td><b>Total</b></td><td className="num"><b>{totP.q}</b></td><td className="num"><b>{moeda(totP.fat)}</b></td>
+                <td className="num"><b>{moeda(totP.liq)}</b>{totP.fat > 0 && <small className="sub"> {pct((totP.liq / totP.fat) * 100)}</small>}</td>
+                {ehDono && <td className={`num ${totP.luc < 0 ? 'neg' : ''}`}><b>{moeda(totP.luc)}</b></td>}
+              </tr>
             </tbody>
           </table>
+          <p className="dica">Líquido = o que a plataforma repassa (preço − tarifa − frete). O lucro desconta ainda custo do produto, publicidade e embalagem.</p>
         </Cartao>
 
         <Cartao titulo="Produtos abaixo do estoque mínimo" acoes={ehDono && <Link to="/reposicao" className="botao">Lista de compra</Link>}>

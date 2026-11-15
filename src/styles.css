@@ -231,3 +231,4 @@ details summary { cursor: pointer; padding: 6px 0; }
 .sem-quebra { white-space: nowrap; }
 a.numero { color: inherit; text-decoration: none; }
 a.numero:hover { border-color: var(--texto-2); }
+.tabela small.sub { font-size: .75rem; margin: 0; }
