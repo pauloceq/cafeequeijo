@@ -99,13 +99,13 @@ export default function Painel() {
           <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} aria-label="Período">
             {Object.entries(PERIODOS).map(([k, t]) => <option key={k} value={k}>{t}</option>)}
           </select>}>
-          <table className="tabela">
-            <thead><tr><th>Conta</th><th className="num">Qtd</th><th className="num">Faturam.</th>
+          <table className="tabela tabela-contas">
+            <thead><tr><th>Conta</th><th className="num">Vendas</th><th className="num">Faturamento</th>
               <th className="num" title="Preço menos tarifa e frete da plataforma">Líquido</th>{ehDono && <th className="num">Lucro</th>}</tr></thead>
             <tbody>
               {linhasPeriodo.map((r) => (
                 <tr key={r.conta.id}>
-                  <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} /><span className="so-tela-grande">{r.conta.nome}</span><span className="so-celular">{r.conta.nome.replace('Mercado Livre', 'ML')}</span></td>
+                  <td className="nowrap"><span className="bolinha" style={{ background: r.conta.cor }} />{r.conta.nome}</td>
                   <td className="num">{r.q}</td><td className="num">{moeda(r.fat)}</td>
                   <td className="num">{moeda(r.liq)}{r.fat > 0 && <small className="sub"> {pct((r.liq / r.fat) * 100)}</small>}</td>
                   {ehDono && <td className={`num ${r.luc < 0 ? 'neg' : ''}`}>{moeda(r.luc)}</td>}
@@ -118,6 +118,21 @@ export default function Painel() {
               </tr>
             </tbody>
           </table>
+          <div className="lista-contas">
+            {[...linhasPeriodo.map((r) => ({ ...r, nome: r.conta.nome, cor: r.conta.cor })), { ...totP, nome: 'Total', total: true }].map((r) => (
+              <div key={r.nome} className={`linha-conta ${r.total ? 'total' : ''}`}>
+                <div className="linha-conta-topo">
+                  <span>{r.cor && <span className="bolinha" style={{ background: r.cor }} />}<b>{r.nome}</b></span>
+                  <small>{r.q} venda{r.q === 1 ? '' : 's'}</small>
+                </div>
+                <div className="linha-conta-valores">
+                  <div><small>Faturamento</small><span>{moeda(r.fat)}</span></div>
+                  <div><small>Líquido{r.fat > 0 ? ` · ${pct((r.liq / r.fat) * 100)}` : ''}</small><span>{moeda(r.liq)}</span></div>
+                  {ehDono && <div><small>Lucro</small><span className={r.luc < 0 ? 'neg' : ''}>{moeda(r.luc)}</span></div>}
+                </div>
+              </div>
+            ))}
+          </div>
           <p className="dica">Líquido = o que a plataforma repassa (preço − tarifa − frete). O lucro desconta ainda custo do produto, publicidade e embalagem.</p>
         </Cartao>
 

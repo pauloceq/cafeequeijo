@@ -258,8 +258,8 @@ a.numero:hover { border-color: var(--texto-2); }
   .tabela th { font-size: .66rem; letter-spacing: 0; }
   .tabela th, .tabela td { padding: 6px 6px; }
   .tabela td.nowrap { white-space: nowrap; }
-  .so-tela-grande { display: none; }
-  .so-celular { display: inline !important; }
+  .tabela-contas { display: none !important; }
+  .lista-contas { display: grid !important; }
   .tabela small.sub { display: block; }
 
   /* filtros e formulários ocupam a largura toda */
@@ -271,4 +271,12 @@ a.numero:hover { border-color: var(--texto-2); }
   .grade-colunas { grid-template-columns: 1fr; }
 }
 
-.so-celular { display: none; }
+.lista-contas { display: none; gap: 6px; }
+.linha-conta { background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; }
+.linha-conta.total { border-color: var(--texto-2); }
+.linha-conta-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.linha-conta-topo small { color: var(--texto-2); white-space: nowrap; }
+.linha-conta-valores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.linha-conta-valores div { display: flex; flex-direction: column; min-width: 0; }
+.linha-conta-valores small { color: var(--texto-2); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linha-conta-valores span { font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
