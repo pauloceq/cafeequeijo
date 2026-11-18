@@ -217,6 +217,14 @@ create table if not exists public.produtos (
   criado_em timestamptz not null default now()
 );
 
+-- Regras de custo do Paulo:
+--  custo_fixo: a peça sempre custa este valor (ex.: tamper Dolce Gusto R$ 25, porta-filtro R$ 50). Quando ela vem
+--              dentro de um kit comprado, sai do total do kit por esse valor e o resto é dividido igualmente entre as
+--              outras peças do kit (ex.: 3 cápsulas + tamper; porta-filtro + 3 cestas).
+--  custo_igual_a: usa o mesmo custo de outra peça (ex.: cápsula de leite = cápsula de café).
+alter table public.produtos add column if not exists custo_fixo numeric(12,2);
+alter table public.produtos add column if not exists custo_igual_a int references public.produtos (id) on delete set null;
+
 -- Lista de peças de cada kit
 create table if not exists public.kit_componentes (
   kit_id int not null references public.produtos (id) on delete cascade,
@@ -727,6 +735,75 @@ begin
 end $$;
 revoke all on function public._receber_peca from public, anon, authenticated;
 
+-- Divide o custo de 1 kit comprado entre as peças, pela regra do Paulo:
+-- peças com custo_fixo levam esse valor; o resto é dividido igualmente (por unidade) entre as demais peças.
+-- Se todas forem fixas (ou o resto ficar negativo), divide proporcionalmente ao custo de referência.
+create or replace function public.custo_pecas_do_kit(p_kit int, p_valor_kit numeric)
+returns table (peca_id int, quantidade numeric, custo_unit numeric) language plpgsql stable set search_path = public as $$
+declare v_fixo numeric; v_qtd_livre numeric; v_ref numeric;
+begin
+  select coalesce(sum(kc.quantidade * pc.custo_fixo) filter (where pc.custo_fixo is not null), 0),
+         coalesce(sum(kc.quantidade) filter (where pc.custo_fixo is null), 0),
+         coalesce(sum(kc.quantidade * greatest(coalesce(pc.custo_fixo, pc.custo_medio), 0.01)), 0)
+    into v_fixo, v_qtd_livre, v_ref
+    from kit_componentes kc join produtos pc on pc.id = kc.peca_id where kc.kit_id = p_kit;
+  if v_qtd_livre > 0 and p_valor_kit - v_fixo >= 0 then
+    return query select kc.peca_id, kc.quantidade,
+      coalesce(pc.custo_fixo::numeric, (p_valor_kit - v_fixo) / v_qtd_livre)
+      from kit_componentes kc join produtos pc on pc.id = kc.peca_id where kc.kit_id = p_kit;
+  else
+    return query select kc.peca_id, kc.quantidade,
+      p_valor_kit * greatest(coalesce(pc.custo_fixo, pc.custo_medio), 0.01) / nullif(v_ref, 0)
+      from kit_componentes kc join produtos pc on pc.id = kc.peca_id where kc.kit_id = p_kit;
+  end if;
+end $$;
+
+-- Recalcula o custo médio de todas as peças a partir de todas as compras (não canceladas), aplicando as regras
+-- (custo_fixo, custo_igual_a, divisão dos kits comprados) e, se pedido, regrava o custo das vendas já lançadas.
+create or replace function public.recalcular_custos(p_atualizar_vendas boolean default true)
+returns table (sku text, nome text, custo_antes numeric, custo_depois numeric, qtd_comprada numeric)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+declare r record; v_extra numeric;
+begin
+  if not eh_dono() then raise exception 'Apenas o dono pode recalcular custos.'; end if;
+  create temp table _antes on commit drop as select id, custo_medio from produtos;
+  create temp table _linhas (peca_id int, qtd numeric, unit numeric) on commit drop;
+  for r in select i.*, p.tipo, pc.frete + pc.imposto_importacao + pc.icms + pc.iof + pc.outras_despesas as extra,
+                  (select sum(i2.quantidade * i2.custo_unitario) from pedido_compra_itens i2 where i2.pedido_id = i.pedido_id) as tot
+           from pedido_compra_itens i join produtos p on p.id = i.produto_id join pedidos_compra pc on pc.id = i.pedido_id
+           where pc.status <> 'cancelado' and i.quantidade > 0 loop
+    v_extra := case when coalesce(r.tot, 0) > 0 then r.extra * (r.custo_unitario / r.tot) else 0 end;
+    if r.tipo = 'kit' then
+      insert into _linhas select k.peca_id, r.quantidade * k.quantidade, k.custo_unit
+        from custo_pecas_do_kit(r.produto_id, r.custo_unitario + v_extra) k;
+    else
+      insert into _linhas values (r.produto_id, r.quantidade, r.custo_unitario + v_extra);
+    end if;
+  end loop;
+
+  perform set_config('app.rpc', 'on', true);
+  -- média ponderada das compras
+  update produtos p set custo_medio = round(x.media, 4)
+    from (select peca_id, sum(qtd * unit) / nullif(sum(qtd), 0) as media from _linhas group by peca_id) x
+   where p.id = x.peca_id and p.tipo = 'peca' and p.custo_fixo is null and p.custo_igual_a is null and x.media is not null;
+  -- custo fixo
+  update produtos set custo_medio = custo_fixo where tipo = 'peca' and custo_fixo is not null;
+  -- igual a outra peça
+  update produtos p set custo_medio = o.custo_medio from produtos o
+   where p.custo_igual_a = o.id and p.tipo = 'peca' and p.custo_fixo is null;
+
+  if p_atualizar_vendas then
+    update venda_itens set custo_unitario = round(custo_produto(produto_id), 4)
+     where custo_unitario is distinct from round(custo_produto(produto_id), 4);
+  end if;
+
+  return query select p.sku, p.nome, round(a.custo_medio, 2), round(custo_produto(p.id), 2),
+                      (select sum(qtd) from _linhas l where l.peca_id = p.id)
+    from produtos p join _antes a on a.id = p.id
+   where p.ativo order by p.sku;
+end $$;
+
 -- Receber pedido: entra no estoque do local e atualiza o custo médio ponderado.
 -- Custo de cada peça = preço + (frete + II + ICMS + IOF + outras) rateados pelo valor.
 -- Se um KIT foi comprado, ele entra como as peças dele (custo dividido pelo custo médio das peças).
@@ -750,13 +827,11 @@ begin
   for r in select i.*, p.tipo from pedido_compra_itens i join produtos p on p.id = i.produto_id where i.pedido_id = p_pedido_id loop
     v_unit := r.custo_unitario + case when v_total > 0 then v_extra * (r.custo_unitario / v_total) else v_extra / v_qtd_total end;
     if r.tipo = 'kit' then
-      select coalesce(sum(kc.quantidade * pc.custo_medio), 0), coalesce(sum(kc.quantidade), 0) into v_base_kit, v_qtd_kit
-        from kit_componentes kc join produtos pc on pc.id = kc.peca_id where kc.kit_id = r.produto_id;
-      if v_qtd_kit = 0 then raise exception 'Há um kit sem lista de peças neste pedido. Cadastre as peças do kit antes de receber.'; end if;
-      for k in select kc.peca_id, kc.quantidade, pc.custo_medio from kit_componentes kc
-               join produtos pc on pc.id = kc.peca_id where kc.kit_id = r.produto_id loop
-        perform _receber_peca(k.peca_id, v_local, r.quantidade * k.quantidade,
-          case when v_base_kit > 0 then v_unit * (k.custo_medio / v_base_kit) else v_unit / v_qtd_kit end, p_pedido_id);
+      if not exists (select 1 from kit_componentes where kit_id = r.produto_id) then
+        raise exception 'Há um kit sem lista de peças neste pedido. Cadastre as peças do kit antes de receber.';
+      end if;
+      for k in select * from custo_pecas_do_kit(r.produto_id, v_unit) loop
+        perform _receber_peca(k.peca_id, v_local, r.quantidade * k.quantidade, k.custo_unit, p_pedido_id);
       end loop;
     else
       perform _receber_peca(r.produto_id, v_local, r.quantidade, v_unit, p_pedido_id);
@@ -973,6 +1048,8 @@ grant execute on function public.definir_custo(int, numeric, text) to authentica
 grant execute on function public.criar_pedido_compra(jsonb) to authenticated;
 grant execute on function public.mesclar_produtos(int, int) to authenticated;
 grant execute on function public.receber_pedido_compra(bigint, date, int) to authenticated;
+grant execute on function public.recalcular_custos(boolean) to authenticated;
+grant execute on function public.custo_pecas_do_kit(int, numeric) to authenticated;
 grant execute on function public.gerar_contas_pagar(bigint) to authenticated;
 grant execute on function public.eh_dono() to authenticated;
 grant select on public.vw_produtos, public.vw_vendas_itens, public.vw_vendas, public.vw_vendas_pecas, public.vw_consumo_pecas, public.vw_a_caminho to authenticated;
