@@ -15,6 +15,13 @@ as lojas e as **compras** do AliExpress desde a última atualização, sem dupli
 | Amazon 2 (5) — "Cafe e Queijo Utilidades Domésticas" | Chrome "Browser 1" |
 | Shopee 2 (6) | Chrome "Browser 1" |
 
+**Atenção (18/11):** os IDs dos Chromes mudam quando o Paulo reabre o navegador. Use `list_connected_browsers` e
+confira em cada um qual conta está logada (só leitura da página de vendas). Em 18/11: "Browser 2" tinha ML 1, Shopee 1 e
+AliExpress; o navegador do app tinha ML 1 e Amazon 1 (Shopee 1 e AliExpress deslogados lá); as contas 2 não estavam logadas em
+nenhum. Se uma conta estiver deslogada em todos, pule e avise no relatório — nunca tente logar.
+Amazon: pedidos ainda não pagos entram com taxa estimada 13,5% e frete 6,75; na semana seguinte, corrigir com os valores reais
+(PATCH em `vendas` por `codigo_externo`). SKU de kit novo (ex.: KITFILTRO0002) → criar produto tipo 'kit' com `kit_componentes`.
+
 Downloads caem em `C:\Users\paulo\Downloads` (pasta conectável pelo bridge). O Chrome pode bloquear vários downloads
 seguidos: prefira ler os dados direto da página (fetch + JS) e só baixar quando necessário.
 
