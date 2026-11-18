@@ -71,6 +71,13 @@ Abrir uma aba **em segundo plano** do painel (o usuário pode estar usando outra
   YYYY-MM-DD&end_date=YYYY-MM-DD&language=br&screening_condition=order_creation_date&parcel_level_filter=0&entity_type=1`
   (máx. 1 mês) → `GET /api/v3/settings/download_report/?…&report_id=` (xlsx; dá para ler na página descompactando com
   DecompressionStream). Concluídos sem devolução; taxa = comissão líquida + serviço líquida + transação + cupom do vendedor.
+- **AliExpress — regra do Paulo:** sempre olhar a FOTO do pedido e cruzar com título/variação antes de ligar a um produto
+  (o título engana: ex. "cápsula… de plástico" da Belr era 1 cápsula inox + 1 tamper). Na dúvida, perguntar.
+  Pacotes já cadastrados como kit de compra: "3pcs-t" → CAPT3 (3 cápsulas inox + tamper); "4pc -ti" → CAPTI4 (4 + tamper);
+  Belr "Chocolate" → CAPT1 (1 cápsula + tamper); RECAFIMIL "As Picture" → CAPDC0022 (café + leite + tamper);
+  porta-filtro Nebula/YUAN "with 1 2 4 basket" → POFKIT124 (POF510023 + cestas FILTRO0019/0018/0030).
+  Custos: tamper Dolce Gusto (TAMPE0021) sempre R$ 25; porta-filtro POF510023 sempre R$ 50; o resto do pacote é dividido
+  igualmente entre as outras peças; cápsula de leite (CAPDC0010) = cápsula de café (CAPDC0009).
 - **AliExpress:** `www.aliexpress.com/p/order/index.html`, clicar "Ver mais pedidos" até passar do período; cada pedido:
   status, "Data:", "Número de referência", loja, itens (nome, variação, "R$x xN"), "Total:". Pedido sem itens na lista:
   abrir `p/order/detail.html?orderId=`.
