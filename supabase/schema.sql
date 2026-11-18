@@ -768,7 +768,7 @@ returns void language plpgsql security definer set search_path = public as $$
 declare r record; v_extra numeric;
 begin
   create temp table if not exists _linhas_custo (peca_id int, qtd numeric, unit numeric) on commit drop;
-  delete from _linhas_custo;
+  delete from _linhas_custo where true;
   for r in select i.*, p.tipo, pc.frete + pc.imposto_importacao + pc.icms + pc.iof + pc.outras_despesas as extra,
                   (select sum(i2.quantidade * i2.custo_unitario) from pedido_compra_itens i2 where i2.pedido_id = i.pedido_id) as tot
            from pedido_compra_itens i join produtos p on p.id = i.produto_id join pedidos_compra pc on pc.id = i.pedido_id
@@ -801,7 +801,7 @@ language plpgsql security definer set search_path = public as $$
 begin
   if not eh_dono() then raise exception 'Apenas o dono pode recalcular custos.'; end if;
   create temp table if not exists _antes_custo (id int, custo numeric) on commit drop;
-  delete from _antes_custo;
+  delete from _antes_custo where true;
   insert into _antes_custo select id, custo_produto(id) from produtos;
   perform _recalcular_custos_pecas();
   if p_atualizar_vendas then
