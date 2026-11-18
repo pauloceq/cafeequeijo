@@ -720,6 +720,7 @@ begin
             v_item->>'descricao_externa', v_item->>'variacao_externa', (v_item->>'preco_original')::numeric);
   end loop;
   perform gerar_contas_pagar(v_id);
+  perform _recalcular_custos_pecas();  -- custo = média de todas as compras (regra do Paulo)
   return v_id;
 end $$;
 
@@ -758,50 +759,57 @@ begin
   end if;
 end $$;
 
--- Recalcula o custo médio de todas as peças a partir de todas as compras (não canceladas), aplicando as regras
--- (custo_fixo, custo_igual_a, divisão dos kits comprados) e, se pedido, regrava o custo das vendas já lançadas.
-create or replace function public.recalcular_custos(p_atualizar_vendas boolean default true)
-returns table (sku text, nome text, custo_antes numeric, custo_depois numeric, qtd_comprada numeric)
-language plpgsql security definer set search_path = public as $$
+-- Custo de cada peça = média (ponderada pela quantidade) do preço de TODAS as compras não canceladas, inclusive as
+-- que estão a caminho, já dividindo os kits comprados pela regra; peças com custo_fixo ficam no valor fixo e
+-- custo_igual_a copia o custo de outra peça. Chamada a cada compra criada/recebida e pelo recálculo manual.
+create or replace function public._recalcular_custos_pecas()
+returns void language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
 declare r record; v_extra numeric;
 begin
-  if not eh_dono() then raise exception 'Apenas o dono pode recalcular custos.'; end if;
-  create temp table _antes on commit drop as select id, custo_medio from produtos;
-  create temp table _linhas (peca_id int, qtd numeric, unit numeric) on commit drop;
+  create temp table if not exists _linhas_custo (peca_id int, qtd numeric, unit numeric) on commit drop;
+  delete from _linhas_custo;
   for r in select i.*, p.tipo, pc.frete + pc.imposto_importacao + pc.icms + pc.iof + pc.outras_despesas as extra,
                   (select sum(i2.quantidade * i2.custo_unitario) from pedido_compra_itens i2 where i2.pedido_id = i.pedido_id) as tot
            from pedido_compra_itens i join produtos p on p.id = i.produto_id join pedidos_compra pc on pc.id = i.pedido_id
            where pc.status <> 'cancelado' and i.quantidade > 0 loop
     v_extra := case when coalesce(r.tot, 0) > 0 then r.extra * (r.custo_unitario / r.tot) else 0 end;
     if r.tipo = 'kit' then
-      insert into _linhas select k.peca_id, r.quantidade * k.quantidade, k.custo_unit
+      insert into _linhas_custo select k.peca_id, r.quantidade * k.quantidade, k.custo_unit
         from custo_pecas_do_kit(r.produto_id, r.custo_unitario + v_extra) k;
     else
-      insert into _linhas values (r.produto_id, r.quantidade, r.custo_unitario + v_extra);
+      insert into _linhas_custo values (r.produto_id, r.quantidade, r.custo_unitario + v_extra);
     end if;
   end loop;
-
   perform set_config('app.rpc', 'on', true);
-  -- média ponderada das compras
   update produtos p set custo_medio = round(x.media, 4)
-    from (select peca_id, sum(qtd * unit) / nullif(sum(qtd), 0) as media from _linhas group by peca_id) x
-   where p.id = x.peca_id and p.tipo = 'peca' and p.custo_fixo is null and p.custo_igual_a is null and x.media is not null;
-  -- custo fixo
-  update produtos set custo_medio = custo_fixo where tipo = 'peca' and custo_fixo is not null;
-  -- igual a outra peça
+    from (select peca_id, sum(qtd * unit) / nullif(sum(qtd), 0) as media from _linhas_custo group by peca_id) x
+   where p.id = x.peca_id and p.tipo = 'peca' and p.custo_fixo is null and p.custo_igual_a is null and x.media is not null
+     and p.custo_medio is distinct from round(x.media, 4);
+  update produtos set custo_medio = custo_fixo where tipo = 'peca' and custo_fixo is not null and custo_medio is distinct from custo_fixo;
   update produtos p set custo_medio = o.custo_medio from produtos o
-   where p.custo_igual_a = o.id and p.tipo = 'peca' and p.custo_fixo is null;
+   where p.custo_igual_a = o.id and p.tipo = 'peca' and p.custo_fixo is null and p.custo_medio is distinct from o.custo_medio;
+end $$;
+revoke all on function public._recalcular_custos_pecas from public, anon, authenticated;
 
+drop function if exists public.recalcular_custos(boolean);
+-- Recálculo manual (dono): refaz o custo das peças e, se pedido, regrava o custo das vendas já lançadas.
+create or replace function public.recalcular_custos(p_atualizar_vendas boolean default true)
+returns table (sku text, nome text, custo_antes numeric, custo_depois numeric)
+language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+begin
+  if not eh_dono() then raise exception 'Apenas o dono pode recalcular custos.'; end if;
+  create temp table if not exists _antes_custo (id int, custo numeric) on commit drop;
+  delete from _antes_custo;
+  insert into _antes_custo select id, custo_produto(id) from produtos;
+  perform _recalcular_custos_pecas();
   if p_atualizar_vendas then
     update venda_itens set custo_unitario = round(custo_produto(produto_id), 4)
      where custo_unitario is distinct from round(custo_produto(produto_id), 4);
   end if;
-
-  return query select p.sku, p.nome, round(a.custo_medio, 2), round(custo_produto(p.id), 2),
-                      (select sum(qtd) from _linhas l where l.peca_id = p.id)
-    from produtos p join _antes a on a.id = p.id
-   where p.ativo order by p.sku;
+  return query select p.sku, p.nome, round(a.custo, 2), round(custo_produto(p.id), 2)
+    from produtos p join _antes_custo a on a.id = p.id where p.ativo order by p.sku;
 end $$;
 
 -- Receber pedido: entra no estoque do local e atualiza o custo médio ponderado.
@@ -839,6 +847,7 @@ begin
   end loop;
   update pedidos_compra set status = 'recebido', data_recebimento = coalesce(p_data, current_date), local_id = v_local
   where id = p_pedido_id;
+  perform _recalcular_custos_pecas();  -- custo = média de todas as compras (regra do Paulo)
 end $$;
 
 -- =====================================================================
